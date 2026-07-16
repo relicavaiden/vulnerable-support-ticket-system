@@ -23,6 +23,8 @@ Planned fields:
 
 The `role` field will determine whether a user is a `requester` or a `resolver`.
 
+The `password_hash` field stores a hashed representation of the user's password instead of the plaintext password. The backend should never store recoverable user passwords. If the database is leaked, plaintext passwords would be immdiately exposed. Password hashes reduce the impact of the database leak by requiring an attacker to crack the hashes before learning the original passwords. In a secure implementation, passwords should be hashed using a password-specific hashing function with a salt.
+
 Public user registration is out of scope for Version 1, so users will be manually seeded.
 
 ## Tickets Table
