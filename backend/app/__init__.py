@@ -15,4 +15,7 @@ def create_app():
     db.init_app(app)
     app.register_blueprint(health_bp)
 
+    from . import seed
+    seed.init_app(app)
+
     return app
