@@ -8,6 +8,7 @@ from app.routes.auth import auth_bp
 def create_app():
     app = Flask(__name__)
     app.config["DATABASE"] = os.path.join(app.instance_path, "vulnerable_ticket_system.db")
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
 
     os.makedirs(app.instance_path, exist_ok=True)
 
