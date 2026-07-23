@@ -1,0 +1,84 @@
+from app import create_app
+from app.db import init_db
+from app.seed import seed_db
+
+
+def test_login_with_valid_seed_user_returns_user(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "auth.db"
+    app.config["DATABASE"] = str(database_path)
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.get_json()
+
+    assert "user" in data
+    assert data["user"]["username"] == "requester_demo"
+    assert data["user"]["role"] == "requester"
+    assert "password_hash" not in data["user"]
+    assert "password" not in data["user"]
+
+def test_login_with_wrong_password_returns_401(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "auth.db"
+    app.config["DATABASE"] = str(database_path)
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "wrong-password",
+        },
+    )
+
+    assert response.status_code == 401
+
+    data = response.get_json()
+
+    assert data["error"] == "Invalid username or password"
+
+
+def test_login_with_unknown_usernam_returns_401(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "auth.db"
+    app.config["DATABASE"] = str(database_path)
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "not_a_real_user",
+            "password": "requester123",
+        },
+    )
+
+    assert response.status_code == 401
+
+    data = response.get_json()
+
+    assert data["error"] == "Invalid username or password"
