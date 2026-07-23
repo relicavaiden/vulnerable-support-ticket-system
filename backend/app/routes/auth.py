@@ -59,3 +59,9 @@ def me():
             "role": user["role"]
         }
     }), 200
+
+@auth_bp.post("/logout")
+def logout():
+    session.clear()
+
+    return jsonify({"message": "Logged out successfully"}), 200
