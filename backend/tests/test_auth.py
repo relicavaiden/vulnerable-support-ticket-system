@@ -152,3 +152,67 @@ def test_me_with_invalid_session_user_returns_401(tmp_path):
     data = response.get_json()
 
     assert data["error"] == "Not authenticated"
+
+def test_logout_clears_session(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "auth.db"
+    app.config["DATABASE"] = str(database_path)
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+
+    client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    with client.session_transaction() as session_data:
+        assert "user_id" in session_data
+
+    response = client.post("/api/auth/logout")
+
+    assert response.status_code == 200
+
+    with client.session_transaction() as session_data:
+        assert "user_id" not in session_data
+
+    data = response.get_json()
+
+    assert data["message"] == "Logged out successfully"
+
+def test_me_after_logout_returns_401(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "auth.db"
+    app.config["DATABASE"] = str(database_path)
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+
+    client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    logout_response = client.post("/api/auth/logout")
+
+    assert logout_response.status_code == 200
+
+    response = client.get("/api/auth/me")
+
+    assert response.status_code == 401
+
+    data = response.get_json()
+
+    assert data["error"] == "Not authenticated"

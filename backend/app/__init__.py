@@ -4,6 +4,7 @@ from flask import Flask
 
 from app.routes.health import health_bp
 from app.routes.auth import auth_bp
+from app.routes.tickets import tickets_bp
 
 def create_app():
     app = Flask(__name__)
@@ -16,6 +17,7 @@ def create_app():
     db.init_app(app)
     app.register_blueprint(health_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(tickets_bp)
 
     from . import seed
     seed.init_app(app)
