@@ -11,7 +11,38 @@ def get_tickets():
     if user_id is None:
         return jsonify({"error": "Not authenticated"}), 401
     
-    return jsonify({"tickets": []}), 200
+    db = get_db()
+
+    user = db.execute(
+        "SELECT id, username, role FROM users WHERE id = ?",
+        (user_id,)
+    ).fetchone()
+
+    if user is None:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    tickets = db.execute(
+        """
+        SELECT id, title, description, status, category
+        FROM tickets
+        WHERE requester_id = ?
+        ORDER BY created_at DESC
+        """,
+        (user["id"],)
+    ).fetchall()
+
+    return jsonify({
+        "tickets": [
+            {
+                "id": ticket["id"],
+                "title": ticket["title"],
+                "description": ticket["description"],
+                "status": ticket["status"],
+                "category": ticket["category"],
+            }
+            for ticket in tickets
+        ]
+    }), 200
 
 @tickets_bp.post("/tickets")
 def create_ticket():
@@ -84,5 +115,5 @@ def create_ticket():
             "description": ticket["description"],
             "status": ticket["status"],
             "category": ticket["category"],
-        }
+            }
     }), 201
