@@ -95,8 +95,6 @@ def test_logged_in_requester_can_create_ticket(tmp_path):
 
     assert response.status_code == 201, response.get_data(as_text=True)
 
-    assert response.status_code == 201
-
     data = response.get_json()
 
     assert data["ticket"]["title"] == "Cannot access account"
@@ -124,51 +122,128 @@ def test_logged_in_requester_can_create_ticket(tmp_path):
         assert ticket is not None
         assert ticket["requester_id"] == requester["id"]
 
-    def test_logged_in_requester_can_list_their_created_tickets(tmp_path):
-        app = create_app()
-        database_path = tmp_path / "tickets.db"
-        app.config["DATABASE"] = str(database_path)
-        app.config["TESTING"] = True
+def test_logged_in_requester_can_list_their_created_tickets(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
 
-        with app.app_context():
-            init_db()
-            seed_db()
+    with app.app_context():
+        init_db()
+        seed_db()
         
-        client = app.test_client()
+    client = app.test_client()
 
-        login_response = client.post(
-            "/api/auth/login",
-            json={
-                "username": "requester_demo",
-                "password": "requester123",
-            },
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    create_response = client.post(
+        "/api/tickets",
+        json={
+            "title": "Cannot access account",
+            "description": "I am unable to log into my account.",
+            "category": "account_access",
+        },
+    )
+
+    assert create_response.status_code == 201, create_response.get_data(as_text=True)
+
+    response = client.get("/api/tickets")
+
+    assert response.status_code == 200, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert "tickets" in data
+    assert len(data["tickets"]) == 1
+
+    ticket = data["tickets"][0]
+
+    assert ticket["title"] == "Cannot access account"
+    assert ticket["description"] == "I am unable to log into my account."
+    assert ticket["category"] == "account_access"
+    assert ticket["status"] == "open"
+
+def test_requester_only_lists_their_own_tickets(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE role = ?",
+            ("resolver",)
+        ).fetchone()
+
+        other_requester_cursor = db.execute(
+            """
+            INSERT INTO users (username, password_hash, role, is_seeded)
+            VALUES (?, ?, ?, ?)
+            """,
+            ("other_requester", "not_used", "requester", 0)
         )
 
-        assert login_response.status_code == 200, login_response.get_data(as_text=True)
+        other_requester_id = other_requester_cursor.lastrowid
 
-        create_response = client.post(
-            "/api/tickets",
-            json={
-                "title": "Cannot access account",
-                "description": "I am unable to log into my account.",
-                "category": "account_access",
-            },
+        db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "My ticket",
+                "This belongs to requester_demo",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
         )
 
-        assert create_response.status_code == 201, create_response.get_data(as_text=True)
+        db.commit()
 
-        response = client.get("/api/tickets")
+    client = app.test_client()
 
-        assert response.status_code == 200, response.get_data(as_text=True)
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
 
-        data = response.get_json()
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
 
-        assert "tickets" in data
-        assert len(data["tickets"]) == 1
+    response = client.get("/api/tickets")
 
-        ticket = data["tickets"][0]
+    assert response.status_code == 200, response.get_data(as_text=True)
 
-        assert ticket["title"] == "Cannot access account"
-        assert ticket["description"] == "I am unable to log into my account."
-        assert ticket["category"] == "account_access"
-        assert ticket["status"] == "open"
+    data = response.get_json()
+
+    assert len(data["tickets"]) == 1
+    assert data["tickets"][0]["title"] == "My ticket"
