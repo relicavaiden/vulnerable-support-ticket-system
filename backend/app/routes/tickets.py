@@ -21,15 +21,28 @@ def get_tickets():
     if user is None:
         return jsonify({"error": "Not authenticated"}), 401
     
-    tickets = db.execute(
-        """
-        SELECT id, title, description, status, category
-        FROM tickets
-        WHERE requester_id = ?
-        ORDER BY created_at DESC
-        """,
-        (user["id"],)
-    ).fetchall()
+    if user["role"] == "requester":
+        tickets = db.execute(
+            """
+            SELECT id, title, description, status, category
+            FROM tickets
+            WHERE requester_id = ?
+            ORDER BY created_at DESC
+            """,
+            (user["id"],)
+        ).fetchall()
+    elif user["role"] == "resolver":
+        tickets = db.execute(
+            """
+            SELECT id, title, description, status, category
+            FROM tickets
+            WHERE assigned_resolver_id = ?
+            ORDER BY created_at DESC
+            """,
+            (user["id"],)
+        ).fetchall()
+    else:
+        return jsonify({"error": "Forbidden"}), 403
 
     return jsonify({
         "tickets": [

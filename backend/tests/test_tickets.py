@@ -293,3 +293,78 @@ def test_resolver_cannot_create_ticket(tmp_path):
         ).fetchall()
 
         assert len(tickets) == 0
+
+def test_resolver_lists_assigned_tickets(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Assigned resolver ticket",
+                "This ticket is assigned to resolver_demo.",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
+        )
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "resolver_demo",
+            "password": "resolver123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.get("/api/tickets")
+
+    assert response.status_code == 200, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert "tickets" in data
+
+    assert len(data["tickets"]) == 1
+
+    ticket = data["tickets"][0]
+
+    assert ticket["title"] == "Assigned resolver ticket"
+    assert ticket["description"] == "This ticket is assigned to resolver_demo."
+    assert ticket["category"] == "account_access"
+    assert ticket["status"] == "open"
