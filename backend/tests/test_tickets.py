@@ -247,3 +247,49 @@ def test_requester_only_lists_their_own_tickets(tmp_path):
 
     assert len(data["tickets"]) == 1
     assert data["tickets"][0]["title"] == "My ticket"
+
+def test_resolver_cannot_create_ticket(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        ("/api/auth/login"),
+        json={
+            "username": "resolver_demo",
+            "password": "resolver123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.post(
+        "/api/tickets",
+        json={
+            "title": "Resolver should not create this",
+            "description": "Resolvers should not create requester tickets.",
+            "category": "account_access",
+        },
+    )
+
+    assert response.status_code == 403, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Forbidden"
+
+    with app.app_context():
+        db = get_db()
+
+        tickets = db.execute(
+            "SELECT id FROM tickets"
+        ).fetchall()
+
+        assert len(tickets) == 0
