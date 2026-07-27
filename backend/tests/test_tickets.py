@@ -474,3 +474,72 @@ def test_resolver_only_lists_their_assigned_tickets(tmp_path):
     assert ticket["description"] == "This ticket belongs to resolver_demo."
     assert ticket["category"] == "account_access"
     assert ticket["status"] == "open"
+
+def test_create_ticket_uses_session_user_not_request_body_requester_id(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+    
+        other_resquester_cursor = db.execute(
+            """
+            INSERT INTO users (username, password_hash, role, is_seeded)
+            VALUES(?, ?, ?, ?)
+            """,
+            ("other_requester", "not-used", "requester", 0)
+        )
+    
+        other_requester_id = other_resquester_cursor.lastrowid
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.post(
+        "/api/tickets",
+        json={
+            "title": "Spoofed requester ticket",
+            "description": "Trying to create this as another requester.",
+            "category": "account_access",
+            "requester_id": other_requester_id,
+        },
+    )
+
+    assert response.status_code == 201, response.get_data(as_text=True)
+
+    with app.app_context():
+        db = get_db()
+
+        ticket = db.execute(
+            """
+            SELECT requester_id
+            FROM tickets
+            WHERE title = ?
+            """,
+            ("Spoofed requester ticket",)
+        ).fetchone()
+
+        assert ticket is not None
+        assert ticket["requester_id"] == requester["id"]
+        assert ticket["requester_id"] != other_requester_id
