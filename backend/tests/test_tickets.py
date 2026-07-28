@@ -543,3 +543,72 @@ def test_create_ticket_uses_session_user_not_request_body_requester_id(tmp_path)
         assert ticket is not None
         assert ticket["requester_id"] == requester["id"]
         assert ticket["requester_id"] != other_requester_id
+
+def test_create_ticket_uses_backend_assigned_resolver_not_request_body(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        other_resolver_cursor = db.execute(
+            """
+            INSERT INTO users (username, password_hash, role, is_seeded)
+            VALUES (?, ?, ?, ?)
+            """,
+            ("other_resolver_id", "not-used", "resolver", 0)
+        )
+
+        other_resolver_id = other_resolver_cursor.lastrowid
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123"
+        }
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.post(
+        "/api/tickets",
+        json={
+            "title": "Spoofed resolver ticket",
+            "description": "Trying to assign this to another reolver.",
+            "category": "account_access",
+            "assigned_resolver_id": other_resolver_id,
+        },
+    )
+
+    assert response.status_code == 201, response.get_data(as_text=True)
+
+    with app.app_context():
+        db = get_db()
+
+        ticket = db.execute(
+            """
+            SELECT assigned_resolver_id
+            FROM tickets
+            WHERE title = ?
+            """,
+            ("Spoofed resolver ticket",)
+        ).fetchone()
+
+        assert ticket is not None
+        assert ticket["assigned_resolver_id"] == resolver["id"]
+        assert ticket["assigned_resolver_id"] != other_resolver_id
