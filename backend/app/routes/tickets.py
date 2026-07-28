@@ -130,3 +130,48 @@ def create_ticket():
             "category": ticket["category"],
             }
     }), 201
+
+@tickets_bp.get("/tickets/<int:ticket_id>")
+def get_ticket_detail(ticket_id):
+    user_id = session.get("user_id")
+
+    if user_id is None:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    db = get_db()
+
+    user = db.execute(
+        "SELECT id, username, role FROM users WHERE id = ?",
+        (user_id,)
+    ).fetchone()
+
+    if user is None:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    ticket = db.execute(
+        """
+        SELECT id, title, description, status, category, requester_id, assigned_resolver_id
+        FROM tickets
+        WHERE id = ?
+        """,
+        (ticket_id,)
+    ).fetchone()
+
+    if ticket is None:
+        return jsonify({"error": "Ticket not found"}), 404
+    
+    if user["role"] == "requester" and ticket["requester_id"] != user["id"]:
+        return jsonify({"error": "Forbidden"}), 403
+    
+    if user["role"] == "resolver" and ticket["assigned_resolver_id"] != user["id"]:
+        return jsonify({"error": "Forbidden"}), 403
+    
+    return jsonify({
+        "ticket": {
+            "id": ticket["id"],
+            "title": ticket["title"],
+            "description": ticket["description"],
+            "status": ticket["status"],
+            "category": ticket["category"],
+        }
+    }), 200

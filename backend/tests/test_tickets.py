@@ -612,3 +612,321 @@ def test_create_ticket_uses_backend_assigned_resolver_not_request_body(tmp_path)
         assert ticket is not None
         assert ticket["assigned_resolver_id"] == resolver["id"]
         assert ticket["assigned_resolver_id"] != other_resolver_id
+
+def test_unauthenticated_user_cannot_view_ticket_detail(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+
+    response = client.get("/api/tickets/1")
+
+    assert response.status_code == 401, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Not authenticated"
+
+def test_requester_can_view_own_ticket_detail(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Own ticket detail",
+                "Requester should be able to view this ticket.",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.get(f"/api/tickets/{ticket_id}")
+
+    assert response.status_code == 200, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert "ticket" in data
+
+    ticket = data["ticket"]
+
+    assert ticket["id"] == ticket_id
+    assert ticket["title"] == "Own ticket detail"
+    assert ticket["description"] == "Requester should be able to view this ticket."
+    assert ticket["status"] == "open"
+    assert ticket["category"] == "account_access"
+
+def test_requester_cannot_view_another_requesters_ticket_detail(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        other_requester_cursor = db.execute(
+            """
+            INSERT INTO users (username, password_hash, role, is_seeded)
+            VALUES (?, ?, ?, ?)
+            """,
+            ("other_requester", "not-used", "requester", 0)
+        )
+
+        other_requester_id = other_requester_cursor.lastrowid
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Other requester detail",
+                "requester_demo should not be able to view this ticket.",
+                "open",
+                "account_access",
+                other_requester_id,
+                resolver["id"]
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.commit()
+
+        client = app.test_client()
+
+        login_response = client.post(
+            "/api/auth/login",
+            json={
+                "username": "requester_demo",
+                "password": "requester123",
+            },
+        )
+
+        assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+        response = client.get(f"/api/tickets/{ticket_id}")
+
+        assert response.status_code == 403, response.get_data(as_text=True)
+
+        data = response.get_json()
+
+        assert data["error"] == "Forbidden"
+
+def test_resolver_can_view_assigned_ticket_detail(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Assigned ticket detail",
+                "Resolver should be able to view this assigned ticket.",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.commit()
+    
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "resolver_demo",
+            "password": "resolver123",
+        }
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.get(f"/api/tickets/{ticket_id}")
+
+    assert response.status_code == 200, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert "ticket" in data
+    
+    ticket = data["ticket"]
+
+    assert ticket["id"] == ticket_id
+    assert ticket["title"] == "Assigned ticket detail"
+    assert ticket["description"] == "Resolver should be able to view this assigned ticket."
+    assert ticket["status"] == "open"
+    assert ticket["category"] == "account_access"
+
+def test_resolver_cannot_view_ticket_assigned_to_another_resolver(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        other_resolver_cursor = db.execute(
+            """
+            INSERT INTO users (username, password_hash, role, is_seeded)
+            VALUES (?, ?, ?, ?)
+            """,
+            ("other_resolver", "not-used", "resolver", 0)
+        )
+
+        other_resolver_id = other_resolver_cursor.lastrowid
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Other resolver detail",
+                "resolver_demo should not be able to view this ticket.",
+                "open",
+                "account_access",
+                requester["id"],
+                other_resolver_id,
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "resolver_demo",
+            "password": "resolver123",
+        }
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.get(f"/api/tickets/{ticket_id}")
+
+    assert response.status_code == 403, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Forbidden"
