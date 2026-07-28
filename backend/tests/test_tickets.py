@@ -930,3 +930,33 @@ def test_resolver_cannot_view_ticket_assigned_to_another_resolver(tmp_path):
     data = response.get_json()
 
     assert data["error"] == "Forbidden"
+
+def test_logged_in_user_gets_404_for_missing_ticket_detail(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.get("api/tickets/999")
+
+    assert response.status_code == 404, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Ticket not found"
