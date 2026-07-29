@@ -217,6 +217,8 @@ def add_ticket_note(ticket_id):
 
     if body is None or body.strip() == "":
         return jsonify({"error": "Note body is required"}), 400
+    
+    body = body.strip()
 
     note_type = "requester_note" if user["role"] == "requester" else "resolver_note"
 
