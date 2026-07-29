@@ -175,3 +175,85 @@ def get_ticket_detail(ticket_id):
             "category": ticket["category"],
         }
     }), 200
+
+@tickets_bp.post("/tickets/<int:ticket_id>/notes")
+def add_ticket_note(ticket_id):
+    user_id = session.get("user_id")
+
+    if user_id is None:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    db = get_db()
+
+    user = db.execute(
+        "SELECT id, username, role FROM users WHERE id = ?",
+        (user_id,)
+    ).fetchone()
+
+    if user is None:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    ticket = db.execute(
+        """
+        SELECT id, requester_id, assigned_resolver_id
+        FROM tickets
+        WHERE id = ?
+        """,
+        (ticket_id,)
+    ).fetchone()
+
+    if ticket is None:
+        return jsonify({"error": "Ticket not found"}), 404
+    
+    if user["role"] == "requester" and ticket["requester_id"] != user["id"]:
+        return jsonify({"error": "Forbidden"}), 403
+    
+    if user["role"] == "resolver" and ticket["assigned_resolver_id"] != user["id"]:
+        return jsonify({"error": "Forbidden"}), 403
+    
+    data = request.get_json() or {}
+
+    body = data.get("body")
+
+    note_type = "requester_note" if user["role"] == "requester" else "resolver_note"
+
+    note_cursor = db.execute(
+        """
+        INSERT INTO ticket_notes (
+        ticket_id,
+        author_id,
+        note_type,
+        body
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            ticket_id,
+            user["id"],
+            note_type,
+            body,
+        )
+    )
+
+    db.commit()
+
+    note_id = note_cursor.lastrowid
+
+    note = db.execute(
+        """
+        SELECT id, ticket_id, author_id, note_type, body
+        FROM ticket_notes
+        WHERE id = ?
+        """,
+        (note_id,)
+    ).fetchone()
+
+    return jsonify({
+        "note": {
+            "id": note["id"],
+            "ticket_id": note["ticket_id"],
+            "author_id": note["author_id"],
+            "note_type": note["note_type"],
+            "body": note["body"],
+        }
+    }), 201

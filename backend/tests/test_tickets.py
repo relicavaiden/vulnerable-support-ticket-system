@@ -960,3 +960,398 @@ def test_logged_in_user_gets_404_for_missing_ticket_detail(tmp_path):
     data = response.get_json()
 
     assert data["error"] == "Ticket not found"
+
+def test_unauthenticated_user_cannot_add_ticket_note(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+
+    response = client.post(
+        "/api/tickets/1/notes",
+        json={
+            "body": "This note should not be created.",
+        },
+    )
+
+    assert response.status_code == 401, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Not authenticated"
+
+def test_requester_can_add_note_to_own_ticket(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Ticket needing requester note",
+                "Requester should be able to add a note",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"]
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.post(
+        f"/api/tickets/{ticket_id}/notes",
+        json={
+            "body": "I am still having trouble accessing my account."
+        },
+    )
+
+    assert response.status_code == 201, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert "note" in data
+    assert data["note"]["body"] == "I am still having trouble accessing my account."
+    assert data["note"]["note_type"] == "requester_note"
+
+    with app.app_context():
+        db = get_db()
+
+        note = db.execute(
+            """
+            SELECT ticket_id, author_id, note_type, body
+            FROM ticket_notes
+            WHERE ticket_id = ?
+            """,
+            (ticket_id,)
+        ).fetchone()
+
+        assert note is not None
+        assert note["ticket_id"] == ticket_id
+        assert note["author_id"] == requester["id"]
+        assert note["note_type"] == "requester_note"
+        assert note["body"] == "I am still having trouble accessing my account."
+
+def test_resolver_can_add_note_to_assigned_ticket(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+    
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Ticket needing resolver note",
+                "Resolver should be able to add note.",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+        
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "resolver_demo",
+            "password": "resolver123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.post(
+        f"/api/tickets/{ticket_id}/notes",
+        json={
+            "body": "I am reviewing this account access issue.",
+        },
+    )
+
+    assert response.status_code == 201, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert "note" in data
+    assert data["note"]["body"] == "I am reviewing this account access issue."
+    assert data["note"]["note_type"] == "resolver_note"
+
+    with app.app_context():
+        db = get_db()
+
+        note = db.execute(
+            """
+            SELECT ticket_id, author_id, note_type, body
+            FROM ticket_notes
+            WHERE ticket_id = ?
+            """,
+            (ticket_id,)
+        ).fetchone()
+
+        assert note is not None
+        assert note["ticket_id"] == ticket_id
+        assert note["author_id"] == resolver["id"]
+        assert note["note_type"] == "resolver_note"
+        assert note["body"] == "I am reviewing this account access issue."
+
+def test_requester_cannot_add_note_to_another_requesters_ticket(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        other_requester_cursor = db.execute(
+            """
+            INSERT INTO users (username, password_hash, role, is_seeded)
+            VALUES (?, ?, ?, ?)
+            """,
+            ("other_requester", "not-used", "requester", 0)
+        )
+
+        other_requester_id = other_requester_cursor.lastrowid
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Other requester note test",
+                "requester_demo should not add notes to this ticket.",
+                "open",
+                "account_access",
+                other_requester_id,
+                resolver["id"],
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+        
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.post(
+        f"/api/tickets/{ticket_id}/notes",
+        json={
+            "body": "Trying to add a note to someone else's ticket.",
+        },
+    )
+
+    assert response.status_code == 403, response.get_data(as_test=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Forbidden"
+
+    with app.app_context():
+        db = get_db()
+
+        notes = db.execute(
+            """
+            SELECT id
+            FROM ticket_notes
+            WHERE ticket_id = ?
+            """,
+            (ticket_id,)
+        ).fetchall()
+
+        assert len(notes) == 0
+
+def test_resolver_cannot_add_note_to_ticket_assigned_to_another_resolver(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        other_resolver_cursor = db.execute(
+            """
+            INSERT INTO users (username, password_hash, role, is_seeded)
+            VALUES (?, ?, ?, ?)
+            """,
+            ("other_resolver", "not-used", "resolver", 0)
+        )
+
+        other_resolver_id = other_resolver_cursor.lastrowid
+        
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Other resolver note test",
+                "resolver_demo should not add notes to this ticket.",
+                "open",
+                "account_access",
+                requester["id"],
+                other_resolver_id,
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+        
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "resolver_demo",
+            "password": "resolver123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.post(
+        f"/api/tickets/{ticket_id}/notes",
+        json={
+            "body": "Trying to add a note to another resolver's ticket.",
+        },
+    )
+
+    assert response.status_code == 403, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Forbidden"
+
+    with app.app_context():
+        db = get_db()
+
+        notes = db.execute(
+            """
+            SELECT id
+            FROM ticket_notes
+            WHERE ticket_id = ?
+            """,
+            (ticket_id,)
+        ).fetchall()
+
+        assert len(notes) == 0
