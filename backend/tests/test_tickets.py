@@ -1355,3 +1355,211 @@ def test_resolver_cannot_add_note_to_ticket_assigned_to_another_resolver(tmp_pat
         ).fetchall()
 
         assert len(notes) == 0
+
+def test_logged_in_user_gets_404_when_adding_note_to_missing_ticket(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.post(
+        "/api/tickets/999/notes",
+        json={
+            "body": "This ticket should not exist.",
+        },
+    )
+
+    assert response.status_code == 404, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Ticket not found"
+
+    with app.app_context():
+        db = get_db()
+
+        notes = db.execute(
+            "SELECT id FROM ticket_notes"
+        ).fetchall()
+
+        assert len(notes) == 0
+
+def test_cannot_add_note_without_body(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Missing note body test",
+                "Requester should not be able to add an empty note.",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.post(
+        f"/api/tickets/{ticket_id}/notes",
+        json={}
+    )
+
+    assert response.status_code == 400, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Note body is required"
+
+    with app.app_context():
+        db = get_db()
+
+        notes = db.execute(
+            "SELECT id FROM ticket_notes WHERE ticket_id = ?",
+            (ticket_id,)
+        ).fetchall()
+
+        assert len(notes) == 0
+
+def test_cannot_add_note_with_empty_body(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Empty note body test",
+                "Requester should note be able to add an empty note.",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.post(
+        f"/api/tickets/{ticket_id}/notes",
+        json={
+            "body": "",
+        },
+    )
+
+    assert response.status_code == 400, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Note body is required"
+
+    with app.app_context():
+        db = get_db()
+
+        notes = db.execute(
+            "SELECT id FROM ticket_notes WHERE ticket_id = ?",
+            (ticket_id,)
+        ).fetchall()
+
+        assert len(notes) == 0
