@@ -166,6 +166,16 @@ def get_ticket_detail(ticket_id):
     if user["role"] == "resolver" and ticket["assigned_resolver_id"] != user["id"]:
         return jsonify({"error": "Forbidden"}), 403
     
+    notes = db.execute(
+        """
+        SELECT id, ticket_id, author_id, note_type, body, created_at
+        FROM ticket_notes
+        WHERE ticket_id = ?
+        ORDER BY id ASC
+        """,
+        (ticket_id,)
+    ).fetchall()
+    
     return jsonify({
         "ticket": {
             "id": ticket["id"],
@@ -173,6 +183,17 @@ def get_ticket_detail(ticket_id):
             "description": ticket["description"],
             "status": ticket["status"],
             "category": ticket["category"],
+            "notes": [
+                {
+                    "id": note["id"],
+                    "ticket_id": note["ticket_id"],
+                    "author_id": note["author_id"],
+                    "note_type": note["note_type"],
+                    "body": note["body"],
+                    "created_at": note["created_at"],
+                }
+                for note in notes
+            ],
         }
     }), 200
 

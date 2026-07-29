@@ -1734,3 +1734,118 @@ def test_note_body_is_trimmed_before_saving(tmp_path):
 
         assert note is not None
         assert note["body"] == "I still cannot access my account."
+
+def test_ticket_detail_includes_notes_for_authorized_user(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Ticket with notes",
+                "This ticket should return its notes in the detail response.",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.execute(
+            """
+            INSERT INTO ticket_notes (
+            ticket_id,
+            author_id,
+            note_type,
+            body
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                ticket_id,
+                requester["id"],
+                "requester_note",
+                "This is note one of two.",
+            )
+        )
+
+        db.execute(
+            """
+            INSERT INTO ticket_notes (
+            ticket_id,
+            author_id,
+            note_type,
+            body
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                ticket_id,
+                resolver["id"],
+                "resolver_note",
+                "This is note two of two.",
+            )
+        )
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.get(f"/api/tickets/{ticket_id}")
+
+    assert response.status_code == 200, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert "ticket" in data
+    assert "notes" in data["ticket"]
+
+    notes = data["ticket"]["notes"]
+
+    assert len(notes) == 2
+
+    assert notes[0]["body"] == "This is note one of two."
+    assert notes[0]["note_type"] == "requester_note"
+
+    assert notes[1]["body"] == "This is note two of two."
+    assert notes[1]["note_type"] == "resolver_note"
