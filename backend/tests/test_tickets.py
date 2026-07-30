@@ -2511,3 +2511,96 @@ def test_status_update_creates_status_update_note(tmp_path):
         assert note["author_id"] == resolver["id"]
         assert note["note_type"] == "status_update"
         assert note["body"] == "Status changed from open to in_progress."
+
+def test_ticket_detail_includes_status_update_note_after_status_change(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+                title,
+                description,
+                status,
+                category,
+                requester_id,
+                assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Status history detail test",
+                "Ticket detail should include the status update note.",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.commit()
+
+    client = app.test_client()
+
+    resolver_login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "resolver_demo",
+            "password": "resolver123",
+        },
+    )
+
+    assert resolver_login_response.status_code == 200, resolver_login_response.get_data(as_text=True)
+
+    status_response = client.patch(
+        f"/api/tickets/{ticket_id}/status",
+        json={
+            "status": "in_progress",
+        },
+    )
+
+    assert status_response.status_code == 200, status_response.get_data(as_text=True)
+
+    client.post("/api/auth/logout")
+
+    requester_login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert requester_login_response.status_code == 200, requester_login_response.get_data(as_text=True)
+
+    detail_response = client.get(f"/api/tickets/{ticket_id}")
+
+    assert detail_response.status_code == 200, detail_response.get_data(as_text=True)
+
+    data = detail_response.get_json()
+
+    notes = data["ticket"]["notes"]
+
+    assert len(notes) == 1
+    assert notes[0]["note_type"] == "status_update"
+    assert notes[0]["body"] == "Status changed from open to in_progress."
