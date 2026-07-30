@@ -1849,3 +1849,578 @@ def test_ticket_detail_includes_notes_for_authorized_user(tmp_path):
 
     assert notes[1]["body"] == "This is note two of two."
     assert notes[1]["note_type"] == "resolver_note"
+
+def test_ticket_detail_returns_empty_notes_list_when_no_notes_exist(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Ticket with no notes",
+                "This ticket should return an empty notes list.",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+        
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.get(f"/api/tickets/{ticket_id}")
+
+    assert response.status_code == 200, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert "ticket" in data
+    assert "notes" in data["ticket"]
+    assert data["ticket"]["notes"] == []
+
+def test_unauthenticated_user_cannot_update_ticket_status(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+    
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+
+    response = client.patch(
+        "api/tickets/1/status",
+        json={
+            "status": "in_progress",
+        },
+    )
+
+    assert response.status_code == 401, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Not authenticated"
+
+def test_requester_cannot_update_ticket_status(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Requester status update test",
+                "Requester should not be able to update status.",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.patch(
+        f"api/tickets/{ticket_id}/status",
+        json={
+            "status": "in_progress",
+        },
+    )
+
+    assert response.status_code == 403, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Forbidden"
+
+    with app.app_context():
+        db = get_db()
+
+        ticket = db.execute(
+            """
+            SELECT status
+            FROM tickets
+            WHERE id = ?
+            """,
+            (ticket_id,)
+        ).fetchone()
+
+        assert ticket["status"] == "open"
+
+def test_resolver_gets_404_when_updating_missing_ticket_status(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "resolver_demo",
+            "password": "resolver123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.patch(
+        "/api/tickets/999/status",
+        json={
+            "status": "in_progress",
+        },
+    )
+
+    assert response.status_code == 404, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Ticket not found"
+
+def test_resolver_cannot_update_status_for_ticket_assigned_to_another_resolver(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        other_resolver_cursor = db.execute(
+            """
+            INSERT INTO users (username, password_hash, role, is_seeded)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                "other_resolver",
+                "temporary_hash_for_test",
+                "resolver",
+                0,
+            )
+        )
+
+        other_resolver_id = other_resolver_cursor.lastrowid
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Assigned to other resolver",
+                "resolver_demo should not be able to update this ticket.",
+                "open",
+                "account_access",
+                requester["id"],
+                other_resolver_id,
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "resolver_demo",
+            "password": "resolver123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.patch(
+        f"/api/tickets/{ticket_id}/status",
+        json={
+            "status": "in_progress",
+        },
+    )
+
+    assert response.status_code == 403, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Forbidden"
+
+    with app.app_context():
+        db = get_db()
+
+        ticket = db.execute(
+            """
+            SELECT status
+            FROM tickets
+            WHERE id = ?
+            """,
+            (ticket_id,)
+        ).fetchone()
+
+        assert ticket["status"] == "open"
+
+def test_assigned_resolver_can_update_ticket_status(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+                title,
+                description,
+                status,
+                category,
+                requester_id,
+                assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Assigned resolver status update",
+                "resolver_demo should be able to update this ticket.",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "resolver_demo",
+            "password": "resolver123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.patch(
+        f"/api/tickets/{ticket_id}/status",
+        json={
+            "status": "in_progress",
+        },
+    )
+
+    assert response.status_code == 200, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["ticket"]["id"] == ticket_id
+    assert data["ticket"]["status"] == "in_progress"
+
+    with app.app_context():
+        db = get_db()
+
+        ticket = db.execute(
+            """
+            SELECT status
+            FROM tickets
+            WHERE id = ?
+            """,
+            (ticket_id,)
+        ).fetchone()
+
+        assert ticket["status"] == "in_progress"
+
+def test_assigned_resolver_cannot_update_ticket_status_to_invalid_value(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+            title,
+            description,
+            status,
+            category,
+            requester_id,
+            assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Invalid status update.",
+                "resolver_demo should not be able to set an invalid status.",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
+            
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "resolver_demo",
+            "password": "resolver123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.patch(
+        f"/api/tickets/{ticket_id}/status",
+        json={
+            "status": "closed",
+        },
+    )
+
+    assert response.status_code == 400, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Invalid status"
+
+    with app.app_context():
+        db = get_db()
+
+        ticket = db.execute(
+            """
+            SELECT status
+            FROM tickets
+            WHERE id = ?
+            """,
+            (ticket_id,)
+        ).fetchone()
+
+        assert ticket["status"] == "open"
+
+def test_assigned_resolver_cannot_update_ticket_status_without_status_field(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+                title,
+                description,
+                status,
+                category,
+                requester_id,
+                assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Missing status field",
+                "The request should fail if status is missing.",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "resolver_demo",
+            "password": "resolver123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.patch(
+        f"/api/tickets/{ticket_id}/status",
+        json={},
+    )
+
+    assert response.status_code == 400, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Invalid status"
+
+    with app.app_context():
+        db = get_db()
+
+        ticket = db.execute(
+            """
+            SELECT status
+            FROM tickets
+            WHERE id = ?
+            """,
+            (ticket_id,)
+        ).fetchone()
+
+        assert ticket["status"] == "open"

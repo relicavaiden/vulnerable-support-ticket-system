@@ -283,3 +283,74 @@ def add_ticket_note(ticket_id):
             "body": note["body"],
         }
     }), 201
+
+@tickets_bp.patch("/tickets/<int:ticket_id>/status")
+def update_ticket_status(ticket_id):
+    user_id = session.get("user_id")
+
+    if user_id is None:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    db = get_db()
+
+    user = db.execute(
+        "SELECT id, username, role FROM users WHERE id = ?",
+        (user_id,)
+    ).fetchone()
+
+    if user is None:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    if user["role"] != "resolver":
+        return jsonify({"error": "Forbidden"}), 403
+    
+    ticket = db.execute(
+        """
+        SELECT id, status, assigned_resolver_id
+        FROM tickets
+        WHERE id = ?
+        """,
+        (ticket_id,)
+    ).fetchone()
+
+    if ticket is None:
+        return jsonify({"error": "Ticket not found"}), 404
+    
+    if ticket["assigned_resolver_id"] != user["id"]:
+        return jsonify({"error": "Forbidden"}), 403
+    
+    data = request.get_json() or {}
+    new_status = data.get("status")
+
+    allowed_statuses = {"open", "in_progress", "resolver"}
+
+    if new_status not in allowed_statuses:
+        return jsonify({"error": "Invalid status"}), 400
+
+    db.execute(
+        """
+        UPDATE tickets
+        SET status = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """,
+        (new_status, ticket_id)
+    )
+
+    db.commit()
+
+    updated_ticket = db.execute(
+        """
+        SELECT id, status
+        FROM tickets
+        WHERE id = ?
+        """,
+        (ticket_id,)
+    ).fetchone()
+
+    return jsonify({
+        "ticket": {
+            "id": updated_ticket["id"],
+            "status": updated_ticket["status"],
+        }
+    }), 200
