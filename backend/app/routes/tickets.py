@@ -337,6 +337,26 @@ def update_ticket_status(ticket_id):
         (new_status, ticket_id)
     )
 
+    status_note_body = f"Status changed from {ticket['status']} to {new_status}."
+
+    db.execute(
+        """
+        INSERT INTO ticket_notes (
+        ticket_id,
+        author_id,
+        note_type,
+        body
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            ticket_id,
+            user["id"],
+            "status_update",
+            status_note_body,
+        )
+    )
+
     db.commit()
 
     updated_ticket = db.execute(

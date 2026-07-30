@@ -2424,3 +2424,90 @@ def test_assigned_resolver_cannot_update_ticket_status_without_status_field(tmp_
         ).fetchone()
 
         assert ticket["status"] == "open"
+
+def test_status_update_creates_status_update_note(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        requester = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("requester_demo",)
+        ).fetchone()
+
+        resolver = db.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("resolver_demo",)
+        ).fetchone()
+
+        ticket_cursor = db.execute(
+            """
+            INSERT INTO tickets (
+                title,
+                description,
+                status,
+                category,
+                requester_id,
+                assigned_resolver_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Status update note test",
+                "Changing status should create a status_update note.",
+                "open",
+                "account_access",
+                requester["id"],
+                resolver["id"],
+            )
+        )
+
+        ticket_id = ticket_cursor.lastrowid
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "resolver_demo",
+            "password": "resolver123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.patch(
+        f"/api/tickets/{ticket_id}/status",
+        json={
+            "status": "in_progress",
+        },
+    )
+    
+    assert response.status_code == 200, response.get_data(as_text=True)
+
+    with app.app_context():
+        db = get_db()
+
+        note = db.execute(
+            """
+            SELECT ticket_id, author_id, note_type, body
+            FROM ticket_notes
+            WHERE ticket_id = ?
+            """,
+            (ticket_id,)
+        ).fetchone()
+
+        assert note is not None
+        assert note["ticket_id"] == ticket_id
+        assert note["author_id"] == resolver["id"]
+        assert note["note_type"] == "status_update"
+        assert note["body"] == "Status changed from open to in_progress."
