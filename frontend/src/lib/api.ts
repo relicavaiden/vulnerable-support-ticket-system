@@ -25,6 +25,16 @@ type TicketsResponse = {
     tickets: Ticket[];
 };
 
+type CreateTicketRequest = {
+    title: string;
+    description: string;
+    category: string;
+};
+
+type CreateTicketResponse = {
+    ticket: Ticket;
+};
+
 export async function login(
     username: string,
     password: string
@@ -79,6 +89,25 @@ export async function getTickets(): Promise<TicketsResponse> {
 
     if (!response.ok) {
         throw new Error("Failed to load tickets");
+    }
+
+    return response.json();
+}
+
+export async function createTicket(
+    ticketData: CreateTicketRequest
+): Promise<CreateTicketResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/tickets`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(ticketData),
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to create ticket");
     }
 
     return response.json();
