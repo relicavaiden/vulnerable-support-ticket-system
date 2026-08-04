@@ -1,5 +1,5 @@
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5001";
 
 type AuthResponse = {
     user: {
@@ -13,6 +13,18 @@ type MessageResponse = {
     message: string;
 };
 
+export type Ticket = {
+    id: number;
+    title: string;
+    description: string;
+    status: "open" | "in_progress" | "resolved";
+    category: string;
+};
+
+type TicketsResponse = {
+    tickets: Ticket[];
+};
+
 export async function login(
     username: string,
     password: string
@@ -23,14 +35,14 @@ export async function login(
             "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({ username, password}),
+        body: JSON.stringify({ username, password }),
     });
 
     if (!response.ok) {
         throw new Error("Invalid username or password");
     }
 
-    return response.json()
+    return response.json();
 }
 
 export async function getCurrentUser(): Promise<AuthResponse> {
@@ -43,17 +55,30 @@ export async function getCurrentUser(): Promise<AuthResponse> {
         throw new Error("Not authenticated");
     }
 
-    return response.json()
+    return response.json();
 }
 
 export async function logout(): Promise<MessageResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/auth/logout`,{
+    const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
         method: "POST",
         credentials: "include",
     });
 
     if (!response.ok) {
         throw new Error("Logout failed");
+    }
+
+    return response.json();
+}
+
+export async function getTickets(): Promise<TicketsResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/tickets`, {
+        method: "GET",
+        credentials: "include",
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to load tickets");
     }
 
     return response.json();
