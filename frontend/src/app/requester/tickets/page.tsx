@@ -12,6 +12,8 @@ export default function RequesterTicketsPage() {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [category, setCategory] = useState("");
+    const [createError, setCreateError] = useState("");
+    const [isCreating, setIsCreating] = useState(false);
 
     const router = useRouter();
     
@@ -19,20 +21,28 @@ export default function RequesterTicketsPage() {
         event.preventDefault();
 
         if (!title.trim() || !description.trim() || !category) {
+            setCreateError("Title, description, and category are required");
             return;
         }
 
-        const createdTicket = await createTicket({
-            title,
-            description,
+        try {
+            const createdTicket = await createTicket({
+            title: title.trim(),
+            description: description.trim(),
             category,
-        });
+            });
 
-        setTickets((currentTickets) => [...currentTickets, createdTicket.ticket]);
+            setTickets((currentTickets) => [...currentTickets, createdTicket.ticket]);
 
-        setTitle("");
-        setDescription("");
-        setCategory("");
+            setTitle("");
+            setDescription("");
+            setCategory("");
+        } catch {
+            setCreateError("Failed to create ticket. Please try again.");
+        } finally {
+            setCreateError("");
+            setIsCreating(false);
+        }  
     }
 
     useEffect(() => {
@@ -103,7 +113,9 @@ export default function RequesterTicketsPage() {
                     <option value="other">Other</option>
                 </select>
 
-                <button type="submit">Create Ticket</button>
+                {createError && <p>{createError}</p>}
+                
+                <button type="submit" disabled={isCreating}>{isCreating ? "Creating..." : "Create Ticket"}</button>
             </form>
 
             {tickets.length === 0 ? (
