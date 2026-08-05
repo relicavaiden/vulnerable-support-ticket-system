@@ -1,6 +1,7 @@
 "use client";
 
 import { type SyntheticEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { createTicket, getCurrentUser, getTickets, type Ticket } from "@/lib/api";
@@ -114,7 +115,7 @@ export default function RequesterTicketsPage() {
                 </select>
 
                 {createError && <p>{createError}</p>}
-                
+
                 <button type="submit" disabled={isCreating}>{isCreating ? "Creating..." : "Create Ticket"}</button>
             </form>
 
@@ -124,7 +125,11 @@ export default function RequesterTicketsPage() {
                 <ul>
                     {tickets.map((ticket) => (
                         <li key={ticket.id}>
-                            <h2>{ticket.title}</h2>
+                            <h2>
+                                <Link href={`/requester/tickets/${ticket.id}`}>
+                                    {ticket.title}
+                                </Link>
+                            </h2>
                             <p>{ticket.description}</p>
                             <p>Status: {ticket.status}</p>
                             <p>Category: {ticket.category}</p>

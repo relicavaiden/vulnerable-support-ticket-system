@@ -1,4 +1,3 @@
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5001";
 
 type AuthResponse = {
@@ -33,6 +32,23 @@ type CreateTicketRequest = {
 
 type CreateTicketResponse = {
     ticket: Ticket;
+};
+
+export type TicketNote = {
+    id: number;
+    ticket_id: number;
+    author_id: number;
+    note_type: "requester_note" | "resolver_note" | "status_update";
+    body: string;
+    created_at: string;
+};
+
+export type TicketDetail = Ticket & {
+    notes: TicketNote[];
+};
+
+type TicketDetailResponse = {
+    ticket: TicketDetail;
 };
 
 export async function login(
@@ -89,6 +105,21 @@ export async function getTickets(): Promise<TicketsResponse> {
 
     if (!response.ok) {
         throw new Error("Failed to load tickets");
+    }
+
+    return response.json();
+}
+
+export async function getTicket(
+    ticketId: number
+): Promise<TicketDetailResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`, {
+        method: "GET",
+        credentials: "include",
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to load ticket");
     }
 
     return response.json();
