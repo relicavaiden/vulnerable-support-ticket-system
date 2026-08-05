@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -47,7 +48,11 @@ export default function ResolverTicketsPage() {
                 <ul>
                     {tickets.map((ticket) => (
                         <li key={ticket.id}>
-                            <h2>{ticket.title}</h2>
+                            <h2>
+                                <Link href={`/resolver/tickets/${ticket.id}`}>
+                                    {ticket.title}
+                                </Link>
+                            </h2>
                             <p>{ticket.description}</p>
                             <p>Status: {ticket.status}</p>
                             <p>Category: {ticket.category}</p>
