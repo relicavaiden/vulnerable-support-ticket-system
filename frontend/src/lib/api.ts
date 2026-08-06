@@ -38,6 +38,7 @@ export type TicketNote = {
     id: number;
     ticket_id: number;
     author_id: number;
+    author_username: string;
     note_type: "requester_note" | "resolver_note" | "status_update";
     body: string;
     created_at: string;
@@ -49,6 +50,14 @@ export type TicketDetail = Ticket & {
 
 type TicketDetailResponse = {
     ticket: TicketDetail;
+};
+
+type CreateTicketNoteRequest = {
+    body: string;
+};
+
+type CreateTicketNoteResponse = {
+    note: TicketNote;
 };
 
 export async function login(
@@ -120,6 +129,26 @@ export async function getTicket(
 
     if (!response.ok) {
         throw new Error("Failed to load ticket");
+    }
+
+    return response.json();
+}
+
+export async function addTicketNote(
+    ticketId: number,
+    noteData: CreateTicketNoteRequest
+): Promise<CreateTicketNoteResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/notes`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(noteData),
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to add note");
     }
 
     return response.json();

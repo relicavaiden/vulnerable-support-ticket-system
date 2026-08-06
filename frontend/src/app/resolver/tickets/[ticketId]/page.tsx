@@ -72,7 +72,7 @@ export default function ResolverTicketDetailPage() {
                             {ticket.notes.map((note) => (
                                 <li key={note.id}>
                                     <p>{note.body}</p>
-                                    <p>Type: {note.note_type}</p>
+                                    <p>Added by: {note.author_username}</p>
                                     <p>Created: {note.created_at}</p>
                                 </li>
                             ))}

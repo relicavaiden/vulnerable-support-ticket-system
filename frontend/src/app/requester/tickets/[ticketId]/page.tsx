@@ -1,17 +1,60 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type SyntheticEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-import { getCurrentUser, getTicket, type TicketDetail } from "@/lib/api";
+import { addTicketNote, getCurrentUser, getTicket, type TicketDetail } from "@/lib/api";
 
 export default function RequesterTicketDetail(){
     const [isLoading, setIsLoading] = useState(true);
     const [ticket, setTicket] = useState<TicketDetail | null>(null);
     const [loadError, setLoadError] = useState("");
+    const [noteBody, setNoteBody] = useState("");
+    const [noteError, setNoteError] = useState("");
+    const [isAddingNote, setIsAddingNote] = useState(false);
 
     const params = useParams<{ ticketId: string }>();
     const router = useRouter();
+
+    async function handleAddNote(event: SyntheticEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        if (!noteBody.trim()) {
+            setNoteError("Note body is required.");
+            return;
+        }
+
+        if (ticket === null) {
+            setNoteError("Ticket is unavailable.");
+            return;
+        }
+
+        setNoteError("");
+        setIsAddingNote(true);
+
+        try {
+            const createdNote = await addTicketNote(ticket.id, {
+                body: noteBody.trim(),
+            });
+
+            setTicket((currentTicket) => {
+                if (currentTicket === null) {
+                    return null;
+                }
+
+                return {
+                    ...currentTicket,
+                    notes: [...currentTicket.notes, createdNote.note],
+                };
+            });
+
+            setNoteBody("");
+        } catch {
+            setNoteError("Failed to add note. Please try again.");
+        } finally {
+            setIsAddingNote(false);
+        }
+    }
 
     useEffect(() => {
         async function loadTicket() {
@@ -72,12 +115,29 @@ export default function RequesterTicketDetail(){
                         {ticket.notes.map((note) => (
                             <li key={note.id}>
                                 <p>{note.body}</p>
-                                <p>Type: {note.note_type}</p>
+                                <p>Added by: {note.author_username}</p>
                                 <p>Created: {note.created_at}</p>
                             </li>
                         ))}
                     </ul>
                 )}
+                <form onSubmit={handleAddNote}>
+                <h2>Add Follow-Up Note</h2>
+
+                <label htmlFor="noteBody">Note</label>
+                <textarea
+                    id="noteBody"
+                    name="noteBody"
+                    value={noteBody}
+                    onChange={(event) => setNoteBody(event.target.value)}
+                />
+
+                {noteError && <p>{noteError}</p>}
+
+                <button type="submit" disabled={isAddingNote}>
+                    {isAddingNote ? "Adding note..." : "Add note"}
+                </button>
+                </form>
             </main>
         );
     }
