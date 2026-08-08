@@ -168,10 +168,18 @@ def get_ticket_detail(ticket_id):
     
     notes = db.execute(
         """
-        SELECT id, ticket_id, author_id, note_type, body, created_at
+        SELECT 
+            ticket_notes.id,
+            ticket_notes.ticket_id,
+            ticket_notes.author_id,
+            users.username AS author_username,
+            ticket_notes.note_type,
+            ticket_notes.body,
+            ticket_notes.created_at
         FROM ticket_notes
-        WHERE ticket_id = ?
-        ORDER BY id ASC
+        JOIN users ON users.id = ticket_notes.author_id
+        WHERE ticket_notes.ticket_id = ?
+        ORDER BY ticket_notes.id ASC
         """,
         (ticket_id,)
     ).fetchall()
@@ -188,6 +196,7 @@ def get_ticket_detail(ticket_id):
                     "id": note["id"],
                     "ticket_id": note["ticket_id"],
                     "author_id": note["author_id"],
+                    "author_username": note["author_username"],
                     "note_type": note["note_type"],
                     "body": note["body"],
                     "created_at": note["created_at"],
@@ -267,9 +276,17 @@ def add_ticket_note(ticket_id):
 
     note = db.execute(
         """
-        SELECT id, ticket_id, author_id, note_type, body
+        SELECT 
+            ticket_notes.id,
+            ticket_notes.ticket_id,
+            ticket_notes.author_id,
+            users.username AS author_username,
+            ticket_notes.note_type,
+            ticket_notes.body,
+            ticket_notes.created_at
         FROM ticket_notes
-        WHERE id = ?
+        JOIN users ON users.id = ticket_notes.author_id
+        WHERE ticket_notes.id = ?
         """,
         (note_id,)
     ).fetchone()
@@ -279,8 +296,10 @@ def add_ticket_note(ticket_id):
             "id": note["id"],
             "ticket_id": note["ticket_id"],
             "author_id": note["author_id"],
+            "author_username": note["author_username"],
             "note_type": note["note_type"],
             "body": note["body"],
+            "created_at": note["created_at"],
         }
     }), 201
 
@@ -322,10 +341,18 @@ def update_ticket_status(ticket_id):
     data = request.get_json() or {}
     new_status = data.get("status")
 
-    allowed_statuses = {"open", "in_progress", "resolver"}
+    allowed_statuses = {"open", "in_progress", "resolved"}
 
     if new_status not in allowed_statuses:
         return jsonify({"error": "Invalid status"}), 400
+    
+    if new_status == ticket["status"]:
+        return jsonify({
+            "ticket": {
+                "id": ticket["id"],
+                "status": ticket["status"],
+            }
+        }), 200
 
     db.execute(
         """

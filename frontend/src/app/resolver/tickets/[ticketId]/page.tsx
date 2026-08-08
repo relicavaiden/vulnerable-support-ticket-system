@@ -32,6 +32,30 @@ export default function ResolverTicketDetailPage() {
         return "Open";
     }
 
+    function formatCategory(category: TicketDetail["category"]) {
+            if (category === "account_access") {
+                return "Account Access";
+            }
+
+            if (category === "hardware") {
+                return "Hardware";
+            }
+
+            if (category === "software") {
+                return "Software";
+            }
+
+            if (category === "network") {
+                return "Network";
+            }
+
+            if (category === "other") {
+                return "Other";
+            }
+
+            return category;
+        }
+
     async function handleAddNote(event: SyntheticEvent<HTMLFormElement>) {
         event.preventDefault();
 
@@ -140,6 +164,15 @@ export default function ResolverTicketDetailPage() {
             if (ticket === null) {
                 return <main>Ticket not found.</main>;
             }
+
+            const latestStatusNote = [...ticket.notes]
+                .reverse()
+                .find((note) => note.note_type === "status_update");
+
+            const visibleNotes = ticket.notes.filter((note) =>
+                note.note_type !== "status_update" ||
+                note.id === latestStatusNote?.id
+        );
     
             return (
                 <main>
@@ -166,19 +199,19 @@ export default function ResolverTicketDetailPage() {
 
                         {statusError && <p>{statusError}</p>}
 
-                        <button type="submit" disabled={isUpdatingStatus}>
+                        <button type="submit" disabled={isUpdatingStatus || selectedStatus === ticket.status}>
                             {isUpdatingStatus ? "Updating..." : "Update Status"}
                         </button>
                     </form>
-                    <p>Category: {ticket.category}</p>
+                    <p>Category: {formatCategory(ticket.category)}</p>
     
                     <h2>Notes</h2>
     
-                    {ticket.notes.length === 0 ? (
+                    {visibleNotes.length === 0 ? (
                         <p>No notes yet.</p>
                     ) : (
                         <ul>
-                            {ticket.notes.map((note) => (
+                            {visibleNotes.map((note) => (
                                 <li key={note.id}>
                                     <p>{note.body}</p>
                                     <p>Added by: {note.author_username}</p>
