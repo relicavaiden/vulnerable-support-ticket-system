@@ -4,13 +4,49 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { getCurrentUser, getTickets, type Ticket } from "@/lib/api";
+import { getCurrentUser, getTickets, TicketDetail, type Ticket } from "@/lib/api";
 
 export default function ResolverTicketsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [tickets, setTickets] = useState<Ticket[]>([]);
 
     const router = useRouter();
+
+            function formatStatus(status: TicketDetail["status"]) {
+            if (status === "in_progress") {
+                return "In Progress";
+            }
+    
+            if (status == "resolved") {
+                return "Resolved";
+            }
+    
+            return "Open";
+        }
+
+            function formatCategory(category: TicketDetail["category"]) {
+            if (category === "account_access") {
+                return "Account Access";
+            }
+
+            if (category === "hardware") {
+                return "Hardware";
+            }
+
+            if (category === "software") {
+                return "Software";
+            }
+
+            if (category === "network") {
+                return "Network";
+            }
+
+            if (category === "other") {
+                return "Other";
+            }
+
+            return category;
+        }
 
     useEffect(() => {
         async function checkAuth() {
@@ -54,8 +90,8 @@ export default function ResolverTicketsPage() {
                                 </Link>
                             </h2>
                             <p>{ticket.description}</p>
-                            <p>Status: {ticket.status}</p>
-                            <p>Category: {ticket.category}</p>
+                            <p>Status: {formatStatus(ticket.status)}</p>
+                            <p>Category: {formatCategory(ticket.category)}</p>
                         </li>
                     ))}
                 </ul>

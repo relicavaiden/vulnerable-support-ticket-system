@@ -3,7 +3,7 @@
 import { type SyntheticEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-import { addTicketNote, getCurrentUser, getTicket, type TicketDetail } from "@/lib/api";
+import { addTicketNote, getCurrentUser, getTicket, updateTicketStatus, type TicketDetail } from "@/lib/api";
 
 export default function ResolverTicketDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
@@ -12,9 +12,25 @@ export default function ResolverTicketDetailPage() {
     const [noteBody, setNoteBody] = useState("");
     const [noteError, setNoteError] = useState("");
     const [isAddingNote, setIsAddingNote] = useState(false);
+    const [selectedStatus, setSelectedStatus] = useState<TicketDetail["status"]>("open");
+
+    const [statusError, setStatusError] = useState("");
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     
     const params = useParams<{ ticketId: string }>();
     const router = useRouter();
+
+    function formatStatus(status: TicketDetail["status"]) {
+        if (status === "in_progress") {
+            return "In Progress";
+        }
+
+        if (status == "resolved") {
+            return "Resolved";
+        }
+
+        return "Open";
+    }
 
     async function handleAddNote(event: SyntheticEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -55,7 +71,33 @@ export default function ResolverTicketDetailPage() {
             setIsAddingNote(false);
         }
     }
-    
+
+        async function handleStatusUpdate(event: SyntheticEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        if (ticket === null) {
+            setStatusError("Ticket is unavailable.");
+            return;
+        }
+
+        setStatusError("");
+        setIsUpdatingStatus(true);
+
+        try {
+            await updateTicketStatus(ticket.id, {
+                status: selectedStatus,
+            });
+
+            const refreshedTicket = await getTicket(ticket.id);
+
+            setTicket(refreshedTicket.ticket);
+            setSelectedStatus(refreshedTicket.ticket.status)
+            } catch {
+                setStatusError("Failed to update ticket status. Please try again.");
+            } finally {
+                setIsUpdatingStatus(false);
+            }
+}
     useEffect(() => {
         async function loadTicket() {
             try {
@@ -76,6 +118,7 @@ export default function ResolverTicketDetailPage() {
     
                 const ticketData = await getTicket(numericTicketId);
                 setTicket(ticketData.ticket);
+                setSelectedStatus(ticketData.ticket.status);
                 setIsLoading(false);
                 } catch {
                     setLoadError("Failed to load ticket.");
@@ -103,7 +146,30 @@ export default function ResolverTicketDetailPage() {
                     <h1>{ticket.title}</h1>
     
                     <p>{ticket.description}</p>
-                    <p>Status: {ticket.status}</p>
+                    <p>Status: {formatStatus(ticket.status)}</p>
+
+                    <form onSubmit={handleStatusUpdate}>
+                        <label htmlFor="status">Update Status</label>
+
+                        <select
+                            id="status"
+                            name="status"
+                            value={selectedStatus}
+                            onChange={(event) =>
+                                setSelectedStatus(event.target.value as TicketDetail["status"])
+                            }
+                        >
+                            <option value="open">Open</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="resolved">Resolved</option>
+                        </select>
+
+                        {statusError && <p>{statusError}</p>}
+
+                        <button type="submit" disabled={isUpdatingStatus}>
+                            {isUpdatingStatus ? "Updating..." : "Update Status"}
+                        </button>
+                    </form>
                     <p>Category: {ticket.category}</p>
     
                     <h2>Notes</h2>
@@ -140,4 +206,5 @@ export default function ResolverTicketDetailPage() {
                         </form>
                 </main>
             );
+        
 }

@@ -4,7 +4,7 @@ import { type SyntheticEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { createTicket, getCurrentUser, getTickets, type Ticket } from "@/lib/api";
+import { createTicket, getCurrentUser, getTickets, TicketDetail, type Ticket } from "@/lib/api";
 
 export default function RequesterTicketsPage() {
 
@@ -17,6 +17,42 @@ export default function RequesterTicketsPage() {
     const [isCreating, setIsCreating] = useState(false);
 
     const router = useRouter();
+
+        function formatStatus(status: TicketDetail["status"]) {
+            if (status === "in_progress") {
+                return "In Progress";
+            }
+    
+            if (status == "resolved") {
+                return "Resolved";
+            }
+    
+            return "Open";
+        }
+
+        function formatCategory(category: TicketDetail["category"]) {
+            if (category === "account_access") {
+                return "Account Access";
+            }
+
+            if (category === "hardware") {
+                return "Hardware";
+            }
+
+            if (category === "software") {
+                return "Software";
+            }
+
+            if (category === "network") {
+                return "Network";
+            }
+
+            if (category === "other") {
+                return "Other";
+            }
+
+            return category;
+        }
     
     async function handleCreateTicket(event: SyntheticEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -131,8 +167,8 @@ export default function RequesterTicketsPage() {
                                 </Link>
                             </h2>
                             <p>{ticket.description}</p>
-                            <p>Status: {ticket.status}</p>
-                            <p>Category: {ticket.category}</p>
+                            <p>Status: {formatStatus(ticket.status)}</p>
+                            <p>Category: {formatCategory(ticket.category)}</p>
                         </li>
                     ))}
                 </ul>

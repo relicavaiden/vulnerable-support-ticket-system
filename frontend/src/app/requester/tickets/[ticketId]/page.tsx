@@ -16,6 +16,18 @@ export default function RequesterTicketDetail(){
     const params = useParams<{ ticketId: string }>();
     const router = useRouter();
 
+    function formatStatus(status: TicketDetail["status"]) {
+        if (status === "in_progress") {
+            return "In Progress";
+        }
+
+        if (status == "resolved") {
+            return "Resolved";
+        }
+
+        return "Open";
+    }
+
     async function handleAddNote(event: SyntheticEvent<HTMLFormElement>) {
         event.preventDefault();
 
@@ -103,7 +115,7 @@ export default function RequesterTicketDetail(){
                 <h1>{ticket.title}</h1>
 
                 <p>{ticket.description}</p>
-                <p>Status: {ticket.status}</p>
+                <p>Status: {formatStatus(ticket.status)}</p>
                 <p>Category: {ticket.category}</p>
 
                 <h2>Notes</h2>

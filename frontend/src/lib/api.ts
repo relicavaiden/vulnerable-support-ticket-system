@@ -60,6 +60,17 @@ type CreateTicketNoteResponse = {
     note: TicketNote;
 };
 
+type UpdateTicketStatusRequest = {
+    status: "open" | "in_progress" | "resolved"; 
+};
+
+type UpdateTicketStatusResponse = {
+    ticket: {
+        id: number;
+        status: "open" | "in_progress" | "resolved";
+    };
+};
+
 export async function login(
     username: string,
     password: string
@@ -149,6 +160,28 @@ export async function addTicketNote(
 
     if (!response.ok) {
         throw new Error("Failed to add note");
+    }
+
+    return response.json();
+}
+
+export async function updateTicketStatus(
+    ticketId: number,
+    statusData: UpdateTicketStatusRequest
+): Promise<UpdateTicketStatusResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/status`,
+        {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify(statusData),
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error("Failed to update ticket status");
     }
 
     return response.json();
