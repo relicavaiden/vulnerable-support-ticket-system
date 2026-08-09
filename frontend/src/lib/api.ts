@@ -12,12 +12,24 @@ type MessageResponse = {
     message: string;
 };
 
+export type TicketCategory =
+    | "account_access"
+    | "hardware"
+    | "software"
+    | "network"
+    | "other";
+
+export type TicketStatus = 
+    | "open"
+    | "in_progress"
+    | "resolved";
+
 export type Ticket = {
     id: number;
     title: string;
     description: string;
-    status: "open" | "in_progress" | "resolved";
-    category: string;
+    status: TicketStatus;
+    category: TicketCategory;
 };
 
 type TicketsResponse = {
@@ -27,7 +39,7 @@ type TicketsResponse = {
 type CreateTicketRequest = {
     title: string;
     description: string;
-    category: string;
+    category: TicketCategory;
 };
 
 type CreateTicketResponse = {
@@ -61,13 +73,13 @@ type CreateTicketNoteResponse = {
 };
 
 type UpdateTicketStatusRequest = {
-    status: "open" | "in_progress" | "resolved"; 
+    status: TicketStatus; 
 };
 
 type UpdateTicketStatusResponse = {
     ticket: {
         id: number;
-        status: "open" | "in_progress" | "resolved";
+        status: TicketStatus;
     };
 };
 

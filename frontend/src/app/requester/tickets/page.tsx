@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import LogoutButton from "@/components/LogoutButton";
-import { createTicket, getCurrentUser, getTickets, TicketDetail, type Ticket } from "@/lib/api";
+import { createTicket, getCurrentUser, getTickets, TicketCategory, type Ticket } from "@/lib/api";
+import { formatCategory, formatStatus } from "@/lib/ticket-formatters";
 
 export default function RequesterTicketsPage() {
 
@@ -13,47 +14,11 @@ export default function RequesterTicketsPage() {
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
-    const [category, setCategory] = useState("");
+    const [category, setCategory] = useState<TicketCategory | "">("");
     const [createError, setCreateError] = useState("");
     const [isCreating, setIsCreating] = useState(false);
 
     const router = useRouter();
-
-        function formatStatus(status: TicketDetail["status"]) {
-            if (status === "in_progress") {
-                return "In Progress";
-            }
-    
-            if (status == "resolved") {
-                return "Resolved";
-            }
-    
-            return "Open";
-        }
-
-        function formatCategory(category: TicketDetail["category"]) {
-            if (category === "account_access") {
-                return "Account Access";
-            }
-
-            if (category === "hardware") {
-                return "Hardware";
-            }
-
-            if (category === "software") {
-                return "Software";
-            }
-
-            if (category === "network") {
-                return "Network";
-            }
-
-            if (category === "other") {
-                return "Other";
-            }
-
-            return category;
-        }
     
     async function handleCreateTicket(event: SyntheticEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -142,7 +107,7 @@ export default function RequesterTicketsPage() {
                     id="category"
                     name="category"
                     value={category}
-                    onChange={(event) => setCategory(event.target.value)}
+                    onChange={(event) => setCategory(event.target.value as TicketCategory | "")}
                 >
                     <option value="">Select a category</option>
                     <option value="account_access">Account Access</option>
