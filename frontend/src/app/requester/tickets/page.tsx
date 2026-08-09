@@ -4,6 +4,7 @@ import { type SyntheticEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import LogoutButton from "@/components/LogoutButton";
 import { createTicket, getCurrentUser, getTickets, TicketDetail, type Ticket } from "@/lib/api";
 
 export default function RequesterTicketsPage() {
@@ -113,6 +114,7 @@ export default function RequesterTicketsPage() {
         <main>
 
             <h1>Requester Tickets</h1>
+            <LogoutButton />
             <p>This is where requester tickets will appear.</p>
 
             <form onSubmit={handleCreateTicket}>

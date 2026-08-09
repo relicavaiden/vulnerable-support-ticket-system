@@ -88,7 +88,7 @@ def create_ticket():
         ("resolver",)
     ).fetchone()
 
-    db.execute(
+    ticket_cursor = db.execute(
         """
         INSERT INTO tickets (
         title,
@@ -112,13 +112,15 @@ def create_ticket():
 
     db.commit()
 
+    ticket_id = ticket_cursor.lastrowid
+
     ticket = db.execute(
         """
         SELECT id, title, description, status, category, requester_id, assigned_resolver_id
         FROM tickets
-        WHERE title = ?
+        WHERE id = ?
         """,
-        (title,)
+        (ticket_id,)
     ).fetchone()
 
     return jsonify({

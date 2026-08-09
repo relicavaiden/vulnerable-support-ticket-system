@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import LogoutButton from "@/components/LogoutButton";
 import { getCurrentUser, getTickets, TicketDetail, type Ticket } from "@/lib/api";
 
 export default function ResolverTicketsPage() {
@@ -76,6 +77,7 @@ export default function ResolverTicketsPage() {
     return (
         <main>
             <h1>Resolver Tickets</h1>
+            <LogoutButton />
             <p>This is where assigned resolver tickets will appear.</p>
 
             {tickets.length === 0 ? (

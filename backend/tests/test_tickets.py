@@ -2604,3 +2604,59 @@ def test_ticket_detail_includes_status_update_note_after_status_change(tmp_path)
     assert len(notes) == 1
     assert notes[0]["note_type"] == "status_update"
     assert notes[0]["body"] == "Status changed from open to in_progress."
+
+    def test_duplicate_ticket_titles_return_unique_tickets(tmp_path):
+        app = create_app()
+        database_path = tmp_path / "tickets.db"
+        app.config["DATABASE"] = str(database_path)
+        app.config["TESTING"] = True
+
+        with app.app_context():
+            init_db()
+            seed_db()
+
+    client = app.test_client()
+
+    requester_login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert requester_login_response.status_code == 200, requester_login_response.get_data(as_text=True)
+
+    first_response = client.post(
+    "/api/tickets",
+    json={
+        "title": "Duplicate Tickets",
+        "description": "This is the first duplicate-title ticket.",
+        "category": "account_access",
+    },
+)
+    assert first_response.status_code == 201
+
+    second_response = client.post(
+    "/api/tickets",
+    json={
+        "title": "Duplicate Tickets",
+        "description": "This is the second duplicate-title ticket.",
+        "category": "account_access",
+    },
+    )
+    assert second_response.status_code == 201
+
+    first_data = first_response.get_json()
+    second_data = second_response.get_json()
+
+    assert first_data["ticket"]["id"] != second_data["ticket"]["id"]
+    assert first_data["ticket"]["description"] == (
+    "This is the first duplicate-title ticket."
+    )
+
+    assert second_data["ticket"]["description"] == (
+    "This is the second duplicate-title ticket."
+    )
+    assert first_data["ticket"]["title"] == "Duplicate Tickets"
+    assert second_data["ticket"]["title"] == "Duplicate Tickets"
