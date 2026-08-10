@@ -4,6 +4,9 @@ import { type SyntheticEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { addTicketNote, getCurrentUser, getTicket, updateTicketStatus, type TicketDetail } from "@/lib/api";
+import { formatCategory, formatStatus } from "@/lib/ticket-formatters";
+import { getVisibleNotes } from "@/lib/ticket-notes";
+import TicketNotesList from "@/components/tickets/TicketNotesList";
 
 export default function ResolverTicketDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
@@ -19,42 +22,6 @@ export default function ResolverTicketDetailPage() {
     
     const params = useParams<{ ticketId: string }>();
     const router = useRouter();
-
-    function formatStatus(status: TicketDetail["status"]) {
-        if (status === "in_progress") {
-            return "In Progress";
-        }
-
-        if (status == "resolved") {
-            return "Resolved";
-        }
-
-        return "Open";
-    }
-
-    function formatCategory(category: TicketDetail["category"]) {
-            if (category === "account_access") {
-                return "Account Access";
-            }
-
-            if (category === "hardware") {
-                return "Hardware";
-            }
-
-            if (category === "software") {
-                return "Software";
-            }
-
-            if (category === "network") {
-                return "Network";
-            }
-
-            if (category === "other") {
-                return "Other";
-            }
-
-            return category;
-        }
 
     async function handleAddNote(event: SyntheticEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -165,14 +132,7 @@ export default function ResolverTicketDetailPage() {
                 return <main>Ticket not found.</main>;
             }
 
-            const latestStatusNote = [...ticket.notes]
-                .reverse()
-                .find((note) => note.note_type === "status_update");
-
-            const visibleNotes = ticket.notes.filter((note) =>
-                note.note_type !== "status_update" ||
-                note.id === latestStatusNote?.id
-        );
+            const visibleNotes = getVisibleNotes(ticket.notes);
     
             return (
                 <main>
@@ -207,19 +167,7 @@ export default function ResolverTicketDetailPage() {
     
                     <h2>Notes</h2>
     
-                    {visibleNotes.length === 0 ? (
-                        <p>No notes yet.</p>
-                    ) : (
-                        <ul>
-                            {visibleNotes.map((note) => (
-                                <li key={note.id}>
-                                    <p>{note.body}</p>
-                                    <p>Added by: {note.author_username}</p>
-                                    <p>Created: {note.created_at}</p>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
+                    <TicketNotesList notes={visibleNotes} />
                     <form onSubmit={handleAddNote}>
                             <h2>Add Resolver Note</h2>
 
