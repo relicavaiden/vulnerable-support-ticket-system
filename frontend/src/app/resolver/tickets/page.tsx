@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import LogoutButton from "@/components/LogoutButton";
 import { getCurrentUser, getTickets, type Ticket } from "@/lib/api";
-import { formatCategory, formatStatus } from "@/lib/ticket-formatters";
+import TicketListItem from "@/components/tickets/TicketListItem";
 
 export default function ResolverTicketsPage() {
     const [isLoading, setIsLoading] = useState(true);
@@ -50,16 +49,11 @@ export default function ResolverTicketsPage() {
             ) : (
                 <ul>
                     {tickets.map((ticket) => (
-                        <li key={ticket.id}>
-                            <h2>
-                                <Link href={`/resolver/tickets/${ticket.id}`}>
-                                    {ticket.title}
-                                </Link>
-                            </h2>
-                            <p>{ticket.description}</p>
-                            <p>Status: {formatStatus(ticket.status)}</p>
-                            <p>Category: {formatCategory(ticket.category)}</p>
-                        </li>
+                        <TicketListItem
+                            key={ticket.id}
+                            ticket={ticket}
+                            href={`/resolver/tickets/${ticket.id}`}
+                        />
                     ))}
                 </ul>
             )}

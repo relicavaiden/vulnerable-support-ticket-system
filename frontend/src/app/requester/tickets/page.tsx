@@ -1,12 +1,11 @@
 "use client";
 
 import { type SyntheticEvent, useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import LogoutButton from "@/components/LogoutButton";
 import { createTicket, getCurrentUser, getTickets, TicketCategory, type Ticket } from "@/lib/api";
-import { formatCategory, formatStatus } from "@/lib/ticket-formatters";
+import TicketListItem from "@/components/tickets/TicketListItem";
 
 export default function RequesterTicketsPage() {
 
@@ -127,16 +126,11 @@ export default function RequesterTicketsPage() {
             ) : (
                 <ul>
                     {tickets.map((ticket) => (
-                        <li key={ticket.id}>
-                            <h2>
-                                <Link href={`/requester/tickets/${ticket.id}`}>
-                                    {ticket.title}
-                                </Link>
-                            </h2>
-                            <p>{ticket.description}</p>
-                            <p>Status: {formatStatus(ticket.status)}</p>
-                            <p>Category: {formatCategory(ticket.category)}</p>
-                        </li>
+                        <TicketListItem
+                            key={ticket.id}
+                            ticket={ticket}
+                            href={`/requester/tickets/${ticket.id}`}
+                        />
                     ))}
                 </ul>
             )}
