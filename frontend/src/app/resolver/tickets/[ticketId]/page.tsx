@@ -3,12 +3,13 @@
 import { type SyntheticEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-import { addTicketNote, getCurrentUser, getTicket, TicketStatus, updateTicketStatus, type TicketDetail } from "@/lib/api";
+import { addTicketNote, getCurrentUser, getTicket, updateTicketStatus, type TicketDetail } from "@/lib/api";
 import { formatCategory } from "@/lib/ticket-formatters";
 import { getVisibleNotes } from "@/lib/ticket-notes";
 import TicketNotesList from "@/components/tickets/TicketNotesList";
 import TicketSummary from "@/components/tickets/TicketSummary";
 import TicketNoteForm from "@/components/tickets/TicketNoteForm";
+import TicketStatusForm from "@/components/tickets/TicketStatusForm";
 
 export default function ResolverTicketDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
@@ -140,28 +141,15 @@ export default function ResolverTicketDetailPage() {
                 <main>
                     <TicketSummary ticket={ticket}/>
 
-                    <form onSubmit={handleStatusUpdate}>
-                        <label htmlFor="status">Update Status</label>
+                    <TicketStatusForm
+                        currentStatus={ticket.status}
+                        selectedStatus={selectedStatus}
+                        statusError={statusError}
+                        isUpdatingStatus={isUpdatingStatus}
+                        onSubmit={handleStatusUpdate}
+                        onStatusChange={setSelectedStatus}
+                    />
 
-                        <select
-                            id="status"
-                            name="status"
-                            value={selectedStatus}
-                            onChange={(event) =>
-                                setSelectedStatus(event.target.value as TicketStatus)
-                            }
-                        >
-                            <option value="open">Open</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="resolved">Resolved</option>
-                        </select>
-
-                        {statusError && <p>{statusError}</p>}
-
-                        <button type="submit" disabled={isUpdatingStatus || selectedStatus === ticket.status}>
-                            {isUpdatingStatus ? "Updating..." : "Update Status"}
-                        </button>
-                    </form>
                     <p>Category: {formatCategory(ticket.category)}</p>
     
                     <h2>Notes</h2>
