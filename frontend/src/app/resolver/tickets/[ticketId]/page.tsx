@@ -3,10 +3,12 @@
 import { type SyntheticEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-import { addTicketNote, getCurrentUser, getTicket, updateTicketStatus, type TicketDetail } from "@/lib/api";
-import { formatCategory, formatStatus } from "@/lib/ticket-formatters";
+import { addTicketNote, getCurrentUser, getTicket, TicketStatus, updateTicketStatus, type TicketDetail } from "@/lib/api";
+import { formatCategory } from "@/lib/ticket-formatters";
 import { getVisibleNotes } from "@/lib/ticket-notes";
 import TicketNotesList from "@/components/tickets/TicketNotesList";
+import TicketSummary from "@/components/tickets/TicketSummary";
+import TicketNoteForm from "@/components/tickets/TicketNoteForm";
 
 export default function ResolverTicketDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
@@ -136,10 +138,7 @@ export default function ResolverTicketDetailPage() {
     
             return (
                 <main>
-                    <h1>{ticket.title}</h1>
-    
-                    <p>{ticket.description}</p>
-                    <p>Status: {formatStatus(ticket.status)}</p>
+                    <TicketSummary ticket={ticket}/>
 
                     <form onSubmit={handleStatusUpdate}>
                         <label htmlFor="status">Update Status</label>
@@ -149,7 +148,7 @@ export default function ResolverTicketDetailPage() {
                             name="status"
                             value={selectedStatus}
                             onChange={(event) =>
-                                setSelectedStatus(event.target.value as TicketDetail["status"])
+                                setSelectedStatus(event.target.value as TicketStatus)
                             }
                         >
                             <option value="open">Open</option>
@@ -168,23 +167,14 @@ export default function ResolverTicketDetailPage() {
                     <h2>Notes</h2>
     
                     <TicketNotesList notes={visibleNotes} />
-                    <form onSubmit={handleAddNote}>
-                            <h2>Add Resolver Note</h2>
-
-                            <label htmlFor="noteBody">Note</label>
-                            <textarea
-                                id="noteBody"
-                                name="noteBody"
-                                value={noteBody}
-                                onChange={(event) => setNoteBody(event.target.value)}
-                            />
-
-                            {noteError && <p>{noteError}</p>}
-
-                            <button type="submit" disabled={isAddingNote}>
-                                {isAddingNote ? "Adding note..." : "Add Note"}
-                            </button>
-                        </form>
+                    <TicketNoteForm
+                        heading="Add Resolver Note"
+                        noteBody={noteBody}
+                        noteError={noteError}
+                        isAddingNote={isAddingNote}
+                        onSubmit={handleAddNote}
+                        onNoteBodyChange={setNoteBody}
+                    />
                 </main>
             );
         

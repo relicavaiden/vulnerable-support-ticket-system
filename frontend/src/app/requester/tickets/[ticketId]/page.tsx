@@ -4,9 +4,10 @@ import { type SyntheticEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { addTicketNote, getCurrentUser, getTicket, type TicketDetail } from "@/lib/api";
-import { formatCategory, formatStatus } from "@/lib/ticket-formatters";
 import { getVisibleNotes } from "@/lib/ticket-notes";
 import TicketNotesList from "@/components/tickets/TicketNotesList";
+import TicketSummary from "@/components/tickets/TicketSummary";
+import TicketNoteForm from "@/components/tickets/TicketNoteForm";
 
 export default function RequesterTicketDetail(){
     const [isLoading, setIsLoading] = useState(true);
@@ -105,33 +106,20 @@ export default function RequesterTicketDetail(){
 
         return (
             <main>
-                <h1>{ticket.title}</h1>
-
-                <p>{ticket.description}</p>
-                <p>Status: {formatStatus(ticket.status)}</p>
-                <p>Category: {formatCategory(ticket.category)}</p>
+                <TicketSummary ticket={ticket}/>
 
                 <h2>Notes</h2>
 
                 <TicketNotesList notes={visibleNotes} />
-                
-                <form onSubmit={handleAddNote}>
-                <h2>Add Follow-Up Note</h2>
 
-                <label htmlFor="noteBody">Note</label>
-                <textarea
-                    id="noteBody"
-                    name="noteBody"
-                    value={noteBody}
-                    onChange={(event) => setNoteBody(event.target.value)}
+                <TicketNoteForm
+                    heading="Add Follow-Up Note"
+                    noteBody={noteBody}
+                    noteError={noteError}
+                    isAddingNote={isAddingNote}
+                    onSubmit={handleAddNote}
+                    onNoteBodyChange={setNoteBody}
                 />
-
-                {noteError && <p>{noteError}</p>}
-
-                <button type="submit" disabled={isAddingNote}>
-                    {isAddingNote ? "Adding note..." : "Add note"}
-                </button>
-                </form>
             </main>
         );
     }
