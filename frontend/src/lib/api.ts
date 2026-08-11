@@ -4,13 +4,17 @@ type AuthResponse = {
     user: {
         id: number;
         username: string;
-        role: "requester" | "resolver";
+        role: UserRole;
     };
 };
 
 type MessageResponse = {
     message: string;
 };
+
+export type UserRole =
+    | "requester"
+    | "resolver";
 
 export type TicketCategory =
     | "account_access"

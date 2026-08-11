@@ -1,24 +1,32 @@
 "use client";
 
-import { type SyntheticEvent, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { type SyntheticEvent, useState } from "react";
+import { useParams } from "next/navigation";
 
-import { addTicketNote, getCurrentUser, getTicket, type TicketDetail } from "@/lib/api";
+import { addTicketNote } from "@/lib/api";
 import { getVisibleNotes } from "@/lib/ticket-notes";
 import TicketNotesList from "@/components/tickets/TicketNotesList";
 import TicketSummary from "@/components/tickets/TicketSummary";
 import TicketNoteForm from "@/components/tickets/TicketNoteForm";
+import { useTicketDetail } from "@/hooks/useTicketDetail";
 
 export default function RequesterTicketDetail(){
-    const [isLoading, setIsLoading] = useState(true);
-    const [ticket, setTicket] = useState<TicketDetail | null>(null);
-    const [loadError, setLoadError] = useState("");
     const [noteBody, setNoteBody] = useState("");
     const [noteError, setNoteError] = useState("");
     const [isAddingNote, setIsAddingNote] = useState(false);
 
-    const params = useParams<{ ticketId: string }>();
-    const router = useRouter();
+    const params = useParams();
+
+    const {
+        ticket,
+        setTicket,
+        loadError,
+        isLoading,
+    } = useTicketDetail({
+        ticketId: params.ticketId as string,
+        expectedRole: "requester",
+        wrongRoleRedirect: "/resolver/tickets",
+    })
 
     async function handleAddNote(event: SyntheticEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -59,36 +67,6 @@ export default function RequesterTicketDetail(){
             setIsAddingNote(false);
         }
     }
-
-    useEffect(() => {
-        async function loadTicket() {
-            try {
-                const data = await getCurrentUser();
-
-                if (data.user.role !== "requester") {
-                    router.replace("/resolver/tickets");
-                    return;
-                }
-
-                const numericTicketId = Number(params.ticketId);
-
-                if (Number.isNaN(numericTicketId)) {
-                    setLoadError("Invalid ticket id.");
-                    setIsLoading(false);
-                    return;
-                }
-
-                const ticketData = await getTicket(numericTicketId);
-                setTicket(ticketData.ticket);
-                setIsLoading(false);
-            } catch {
-                setLoadError("Failed to load ticket.");
-                setIsLoading(false);
-            }
-        }
-
-        loadTicket();
-    }, [params.ticketId, router]);
 
     if (isLoading) {
         return <main>Loading ticket...</main>;

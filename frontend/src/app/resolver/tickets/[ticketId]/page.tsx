@@ -1,30 +1,37 @@
 "use client";
 
-import { type SyntheticEvent, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { type SyntheticEvent, useState } from "react";
+import { useParams } from "next/navigation";
 
-import { addTicketNote, getCurrentUser, getTicket, updateTicketStatus, type TicketDetail } from "@/lib/api";
-import { formatCategory } from "@/lib/ticket-formatters";
+import { addTicketNote, getTicket, updateTicketStatus, type TicketStatus } from "@/lib/api";
 import { getVisibleNotes } from "@/lib/ticket-notes";
 import TicketNotesList from "@/components/tickets/TicketNotesList";
 import TicketSummary from "@/components/tickets/TicketSummary";
 import TicketNoteForm from "@/components/tickets/TicketNoteForm";
 import TicketStatusForm from "@/components/tickets/TicketStatusForm";
+import { useTicketDetail } from "@/hooks/useTicketDetail";
 
 export default function ResolverTicketDetailPage() {
-    const [isLoading, setIsLoading] = useState(true);
-    const [ticket, setTicket] = useState<TicketDetail | null>(null);
-    const [loadError, setLoadError] = useState("");
     const [noteBody, setNoteBody] = useState("");
     const [noteError, setNoteError] = useState("");
     const [isAddingNote, setIsAddingNote] = useState(false);
-    const [selectedStatus, setSelectedStatus] = useState<TicketDetail["status"]>("open");
+    const [selectedStatus, setSelectedStatus] = useState<TicketStatus | null>(null);
 
     const [statusError, setStatusError] = useState("");
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     
-    const params = useParams<{ ticketId: string }>();
-    const router = useRouter();
+    const params = useParams();
+
+    const {
+        ticket,
+        setTicket,
+        loadError,
+        isLoading,
+    } = useTicketDetail({
+        ticketId: params.ticketId as string,
+        expectedRole: "resolver",
+        wrongRoleRedirect: "/requester/tickets",
+    });
 
     async function handleAddNote(event: SyntheticEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -74,54 +81,28 @@ export default function ResolverTicketDetailPage() {
             return;
         }
 
+        const newStatus = selectedStatus ?? ticket.status;
+
         setStatusError("");
         setIsUpdatingStatus(true);
 
         try {
             await updateTicketStatus(ticket.id, {
-                status: selectedStatus,
+                status: newStatus,
             });
 
             const refreshedTicket = await getTicket(ticket.id);
 
             setTicket(refreshedTicket.ticket);
-            setSelectedStatus(refreshedTicket.ticket.status)
+            setSelectedStatus(null)
             } catch {
                 setStatusError("Failed to update ticket status. Please try again.");
             } finally {
                 setIsUpdatingStatus(false);
             }
 }
-    useEffect(() => {
-        async function loadTicket() {
-            try {
-                const data = await getCurrentUser();
-    
-                if (data.user.role !== "resolver") {
-                    router.replace("/requester/tickets");
-                    return;
-                }
-    
-                const numericTicketId = Number(params.ticketId);
-    
-                if (Number.isNaN(numericTicketId)) {
-                    setLoadError("Invalid ticket id.");
-                    setIsLoading(false);
-                    return;
-                }
-    
-                const ticketData = await getTicket(numericTicketId);
-                setTicket(ticketData.ticket);
-                setSelectedStatus(ticketData.ticket.status);
-                setIsLoading(false);
-                } catch {
-                    setLoadError("Failed to load ticket.");
-                    setIsLoading(false);
-                }
-            }
-    
-            loadTicket();
-        }, [params.ticketId, router]);
+
+        
     
         if (isLoading) {
             return <main>Loading ticket...</main>;
@@ -135,6 +116,9 @@ export default function ResolverTicketDetailPage() {
                 return <main>Ticket not found.</main>;
             }
 
+
+            const statusSelection = selectedStatus ?? ticket.status;
+
             const visibleNotes = getVisibleNotes(ticket.notes);
     
             return (
@@ -143,14 +127,12 @@ export default function ResolverTicketDetailPage() {
 
                     <TicketStatusForm
                         currentStatus={ticket.status}
-                        selectedStatus={selectedStatus}
+                        selectedStatus={statusSelection}
                         statusError={statusError}
                         isUpdatingStatus={isUpdatingStatus}
                         onSubmit={handleStatusUpdate}
                         onStatusChange={setSelectedStatus}
                     />
-
-                    <p>Category: {formatCategory(ticket.category)}</p>
     
                     <h2>Notes</h2>
     
