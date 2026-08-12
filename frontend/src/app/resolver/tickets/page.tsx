@@ -1,38 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-
 import LogoutButton from "@/components/LogoutButton";
-import { getCurrentUser, getTickets, type Ticket } from "@/lib/api";
 import TicketListItem from "@/components/tickets/TicketListItem";
+import { useTicketList } from "@/hooks/useTicketList";
 
 export default function ResolverTicketsPage() {
-    const [isLoading, setIsLoading] = useState(true);
-    const [tickets, setTickets] = useState<Ticket[]>([]);
 
-    const router = useRouter();
-
-    useEffect(() => {
-        async function checkAuth() {
-            try {
-                const data = await getCurrentUser();
-
-                if (data.user.role !== "resolver") {
-                    router.replace("/requester/tickets");
-                    return;
-                }
-
-                const ticketsData = await getTickets();
-                setTickets(ticketsData.tickets);
-                setIsLoading(false);
-            } catch {
-                router.replace("/login");
-            }
-        }
-
-        checkAuth();
-    }, [router]);
+    const {
+        tickets,
+        isLoading,
+    } = useTicketList({
+        expectedRole: "resolver",
+        wrongRoleRedirect: "/requester/tickets",
+    });
 
     if (isLoading) {
         return <main>Loading...</main>;

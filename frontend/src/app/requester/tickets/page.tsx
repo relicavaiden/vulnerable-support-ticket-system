@@ -1,23 +1,28 @@
 "use client";
 
-import { type SyntheticEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { type SyntheticEvent, useState } from "react";
 
 import LogoutButton from "@/components/LogoutButton";
-import { createTicket, getCurrentUser, getTickets, TicketCategory, type Ticket } from "@/lib/api";
+import { createTicket, type TicketCategory } from "@/lib/api";
 import TicketListItem from "@/components/tickets/TicketListItem";
+import { useTicketList } from "@/hooks/useTicketList";
 
 export default function RequesterTicketsPage() {
 
-    const [isLoading, setIsLoading] = useState(true);
-    const [tickets, setTickets] = useState<Ticket[]>([]);
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [category, setCategory] = useState<TicketCategory | "">("");
     const [createError, setCreateError] = useState("");
     const [isCreating, setIsCreating] = useState(false);
 
-    const router = useRouter();
+    const {
+        tickets,
+        setTickets,
+        isLoading,
+    } = useTicketList({
+        expectedRole: "requester",
+        wrongRoleRedirect: "/resolver/tickets",
+    });
     
     async function handleCreateTicket(event: SyntheticEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -26,6 +31,9 @@ export default function RequesterTicketsPage() {
             setCreateError("Title, description, and category are required");
             return;
         }
+
+        setCreateError("");
+        setIsCreating(true);
 
         try {
             const createdTicket = await createTicket({
@@ -42,32 +50,9 @@ export default function RequesterTicketsPage() {
         } catch {
             setCreateError("Failed to create ticket. Please try again.");
         } finally {
-            setCreateError("");
             setIsCreating(false);
         }  
     }
-
-    useEffect(() => {
-        async function checkAuth() {
-            try {
-                const data = await getCurrentUser();
-
-                if (data.user.role !== "requester") {
-                    router.replace("/resolver/tickets");
-                    return;
-                }
-
-                const ticketsData = await getTickets();
-                setTickets(ticketsData.tickets);
-                setIsLoading(false);
-            } catch {
-                router.replace("/login");
-            }
-        }
-
-        checkAuth();
-    }, [router]);
-
 
     if (isLoading) {
         return <main>Loading...</main>;
