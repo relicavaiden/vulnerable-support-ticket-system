@@ -6,6 +6,7 @@ import LogoutButton from "@/components/LogoutButton";
 import { createTicket, type TicketCategory } from "@/lib/api";
 import TicketListItem from "@/components/tickets/TicketListItem";
 import { useTicketList } from "@/hooks/useTicketList";
+import CreateTicketForm from "@/components/tickets/CreateTicketForm";
 
 export default function RequesterTicketsPage() {
 
@@ -62,49 +63,23 @@ export default function RequesterTicketsPage() {
     return (
         <main>
 
+            <CreateTicketForm
+                title={title}
+                description={description}
+                category={category}
+                createError={createError}
+                isCreating={isCreating}
+                onSubmit={handleCreateTicket}
+                onTitleChange={setTitle}
+                onDescriptionChange={setDescription}
+                onCategoryChange={setCategory}
+            />
+
             <h1>Requester Tickets</h1>
             <LogoutButton />
             <p>This is where requester tickets will appear.</p>
 
-            <form onSubmit={handleCreateTicket}>
-                <h2>Create Ticket</h2>
-
-                <label htmlFor="title">Title</label>
-                <input
-                    id="title"
-                    name="title"
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    type="text"
-                />
-
-                <label htmlFor="description">Description</label>
-                <textarea
-                    id="description"
-                    name="description"
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                />
-
-                <label htmlFor="category">Category</label>
-                <select
-                    id="category"
-                    name="category"
-                    value={category}
-                    onChange={(event) => setCategory(event.target.value as TicketCategory | "")}
-                >
-                    <option value="">Select a category</option>
-                    <option value="account_access">Account Access</option>
-                    <option value="hardware">Hardware</option>
-                    <option value="software">Software</option>
-                    <option value="network">Network</option>
-                    <option value="other">Other</option>
-                </select>
-
-                {createError && <p>{createError}</p>}
-
-                <button type="submit" disabled={isCreating}>{isCreating ? "Creating..." : "Create Ticket"}</button>
-            </form>
+            
 
             {tickets.length === 0 ? (
                 <p>No tickets found.</p>
