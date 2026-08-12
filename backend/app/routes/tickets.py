@@ -4,6 +4,14 @@ from app.db import get_db
 
 tickets_bp = Blueprint("tickets", __name__, url_prefix="/api")
 
+ALLOWED_CATEGORIES = {
+    "account_access",
+    "hardware",
+    "software",
+    "network",
+    "other",
+}
+
 @tickets_bp.get("/tickets")
 def get_tickets():
     user_id = session.get("user_id")
@@ -83,10 +91,25 @@ def create_ticket():
     description = data.get("description")
     category = data.get("category")
 
+    if not isinstance(title, str) or not title.strip():
+        return jsonify({"error": "Title is required"}), 400
+
+    if not isinstance(description, str) or not description.strip():
+        return jsonify({"error": "Description is required"}), 400
+
+    if category not in ALLOWED_CATEGORIES:
+        return jsonify({"error": "Invalid category"}), 400
+
+    title = title.strip()
+    description = description.strip()
+
     resolver = db.execute(
         "SELECT id FROM users WHERE role = ? ORDER BY id LIMIT 1",
         ("resolver",)
     ).fetchone()
+
+    if resolver is None:
+        return jsonify({"error": "No resolver available"}), 500
 
     ticket_cursor = db.execute(
         """
@@ -116,7 +139,7 @@ def create_ticket():
 
     ticket = db.execute(
         """
-        SELECT id, title, description, status, category, requester_id, assigned_resolver_id
+        SELECT id, title, description, status, category
         FROM tickets
         WHERE id = ?
         """,

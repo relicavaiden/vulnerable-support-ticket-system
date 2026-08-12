@@ -2605,15 +2605,15 @@ def test_ticket_detail_includes_status_update_note_after_status_change(tmp_path)
     assert notes[0]["note_type"] == "status_update"
     assert notes[0]["body"] == "Status changed from open to in_progress."
 
-    def test_duplicate_ticket_titles_return_unique_tickets(tmp_path):
-        app = create_app()
-        database_path = tmp_path / "tickets.db"
-        app.config["DATABASE"] = str(database_path)
-        app.config["TESTING"] = True
+def test_duplicate_ticket_titles_return_unique_tickets(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
 
-        with app.app_context():
-            init_db()
-            seed_db()
+    with app.app_context():
+        init_db()
+        seed_db()
 
     client = app.test_client()
 
@@ -2660,3 +2660,201 @@ def test_ticket_detail_includes_status_update_note_after_status_change(tmp_path)
     )
     assert first_data["ticket"]["title"] == "Duplicate Tickets"
     assert second_data["ticket"]["title"] == "Duplicate Tickets"
+
+def test_user_cannot_create_ticket_with_whitespace_only_title(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+    
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+    
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+    
+    response = client.post(
+        f"/api/tickets",
+        json={
+            "title": "    ",
+            "description": "The request should fail if there is whitespace in title.",
+            "category": "account_access",
+            },
+        )
+    
+    assert response.status_code == 400, response.get_data(as_text=True)
+
+def test_user_cannot_create_ticket_with_whitespace_only_description(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+    
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+    
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+    
+    response = client.post(
+        "/api/tickets",
+        json={
+            "title": "Empty description should fail",
+            "description": "     ",
+            "category": "account_access",
+            },
+        )
+
+    data = response.get_json()
+    
+    assert response.status_code == 400, response.get_data(as_text=True)
+    assert data["error"] == "Description is required"
+
+def test_create_ticket_trims_title_and_description(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+    
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+    
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+    
+    response = client.post(
+        "/api/tickets",
+        json={
+            "title": "  Display issue   ",
+            "description": "    Display will not show.     ",
+            "category": "account_access",
+            },
+        )
+
+    assert response.status_code == 201, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert "ticket" in data
+
+    ticket = data["ticket"]
+    
+    assert ticket["title"] == "Display issue"
+    assert ticket["description"] == "Display will not show."
+
+def test_user_cannot_create_ticket_with_invalid_category(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+    
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+    
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+    
+    response = client.post(
+        "/api/tickets",
+        json={
+            "title": "Invalid category",
+            "description": "Invalid category should fail",
+            "category": "invalid_category",
+            },
+        )
+
+    assert response.status_code == 400, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert "error" in data
+
+    assert data["error"] == "Invalid category"
+    assert "ticket" not in data
+
+def test_if_no_resolver_returns_500(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "tickets.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        db = get_db()
+
+        db.execute(
+            "DELETE FROM users WHERE username = ?",
+            ("resolver_demo",),
+        )
+
+        db.commit()
+
+    client = app.test_client()
+
+    login_response = client.post(
+            "/api/auth/login",
+            json={
+                "username": "requester_demo",
+                "password": "requester123",
+            },
+        )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
+
+    response = client.post(
+        "/api/tickets",
+        json={
+            "title": "Resolver unavailable",
+            "description": "This ticket cannot be assigned.",
+            "category": "account_access",
+        },
+    )
+
+    assert response.status_code == 500, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "No resolver available"
+    assert "ticket" not in data
