@@ -241,7 +241,7 @@ def add_ticket_note(ticket_id):
     db = get_db()
 
     user = db.execute(
-        "SELECT id, username, role FROM users WHERE id = ?",
+        "SELECT id, role FROM users WHERE id = ?",
         (user_id,)
     ).fetchone()
 
@@ -265,12 +265,15 @@ def add_ticket_note(ticket_id):
     
     if user["role"] == "resolver" and ticket["assigned_resolver_id"] != user["id"]:
         return jsonify({"error": "Forbidden"}), 403
+
+    if user["role"] not in {"requester", "resolver"}:
+        return jsonify({"error": "Forbidden"}), 403
     
     data = request.get_json() or {}
 
     body = data.get("body")
 
-    if body is None or body.strip() == "":
+    if not isinstance(body, str) or not body.strip():
         return jsonify({"error": "Note body is required"}), 400
     
     body = body.strip()
