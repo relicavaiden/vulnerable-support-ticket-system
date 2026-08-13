@@ -341,7 +341,7 @@ def update_ticket_status(ticket_id):
     db = get_db()
 
     user = db.execute(
-        "SELECT id, username, role FROM users WHERE id = ?",
+        "SELECT id, role FROM users WHERE id = ?",
         (user_id,)
     ).fetchone()
 
@@ -371,7 +371,7 @@ def update_ticket_status(ticket_id):
 
     allowed_statuses = {"open", "in_progress", "resolved"}
 
-    if new_status not in allowed_statuses:
+    if not isinstance(new_status, str) or new_status not in allowed_statuses:
         return jsonify({"error": "Invalid status"}), 400
     
     if new_status == ticket["status"]:
@@ -425,7 +425,7 @@ def update_ticket_status(ticket_id):
 
     return jsonify({
         "ticket": {
-            "id": updated_ticket["id"],
-            "status": updated_ticket["status"],
+            "id": ticket["id"],
+            "status": new_status,
         }
     }), 200
