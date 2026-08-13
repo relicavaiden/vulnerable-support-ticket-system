@@ -8,10 +8,13 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 @auth_bp.post("/login")
 def login():
-    data = request.get_json()
+    data = request.get_json() or {}
 
     username = data.get("username")
     password = data.get("password")
+
+    if not isinstance(username, str) or not isinstance(password, str):
+        return jsonify({"error": "Invalid username or password"}), 401
 
     db = get_db()
     user = db.execute(

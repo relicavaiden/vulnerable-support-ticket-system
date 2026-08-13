@@ -60,6 +60,32 @@ def test_login_with_wrong_password_returns_401(tmp_path):
 
     assert data["error"] == "Invalid username or password"
 
+def test_non_string_password_returns_401(tmp_path):
+    app = create_app()
+    database_path = tmp_path / "auth.db"
+    app.config["DATABASE"] = str(database_path)
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        init_db()
+        seed_db()
+
+    client = app.test_client()
+
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": 123,
+        },
+    )
+
+    assert response.status_code == 401, response.get_data(as_text=True)
+
+    data = response.get_json()
+
+    assert data["error"] == "Invalid username or password"
+
 
 def test_login_with_unknown_usernam_returns_401(tmp_path):
     app = create_app()
