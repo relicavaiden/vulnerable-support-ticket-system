@@ -22,7 +22,7 @@ def get_tickets():
     db = get_db()
 
     user = db.execute(
-        "SELECT id, username, role FROM users WHERE id = ?",
+        "SELECT id, role FROM users WHERE id = ?",
         (user_id,)
     ).fetchone()
 
@@ -166,12 +166,15 @@ def get_ticket_detail(ticket_id):
     db = get_db()
 
     user = db.execute(
-        "SELECT id, username, role FROM users WHERE id = ?",
+        "SELECT id, role FROM users WHERE id = ?",
         (user_id,)
     ).fetchone()
 
     if user is None:
         return jsonify({"error": "Not authenticated"}), 401
+
+    if user["role"] not in {"requester", "resolver"}:
+        return jsonify({"error": "Forbidden"}), 403
     
     ticket = db.execute(
         """
