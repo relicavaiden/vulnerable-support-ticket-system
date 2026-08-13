@@ -16,7 +16,15 @@ CREATE TABLE tickets (
     title TEXT NOT NULL,
     description TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('open', 'in_progress', 'resolved')),
-    category TEXT NOT NULL,
+    category TEXT NOT NULL CHECK (
+        category IN (
+            'account_access',
+            'hardware',
+            'software',
+            'network',
+            'other'
+        )
+    ),
     requester_id INTEGER NOT NULL,
     assigned_resolver_id INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
