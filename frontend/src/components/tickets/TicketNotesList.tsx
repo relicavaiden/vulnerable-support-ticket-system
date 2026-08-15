@@ -7,19 +7,23 @@ type TicketNotesListProps = {
 export default function TicketNotesList({
     notes,
 }: TicketNotesListProps) {
-    if (notes.length === 0) {
-        return <p>No notes yet.</p>;
-    }
-
     return (
-        <ul>
-            {notes.map((note) => (
-                <li key={note.id}>
-                    <p>{note.body}</p>
-                    <p>Added by: {note.author_username}</p>
-                    <p>Created: {note.created_at}</p>
-                </li>
-            ))}
-        </ul>
+        <section className="space-y-4">
+            <h2 className="text-lg font-semibold text-zinc-900">Notes</h2>
+            
+            {notes.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-zinc-300 bg-white p-5 text-sm text-zinc-600">No notes yet.</p>
+            ) : (
+            <ul className="space-y-3">
+                {notes.map((note) => (
+                    <li key={note.id} className="rounded-lg border border-zinc-200 bg-white p-4">
+                        <p>{note.body}</p>
+                        <p>Added by: {note.author_username}</p>
+                        <p>Created: {note.created_at}</p>
+                    </li>
+                ))}
+            </ul>
+            )}
+        </section>
     );
 }

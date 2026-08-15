@@ -19,15 +19,16 @@ export default function ResolverTicketsPage() {
     }
 
     return (
-        <main>
-            <h1>Resolver Tickets</h1>
-            <LogoutButton />
-            <p>This is where assigned resolver tickets will appear.</p>
+        <section className="space-y-6">
+            <div className="text-2xl font-semibold text-zinc-900">
+                <h1>Resolver Tickets</h1>
+                <p>Review and manage tickets assigned to you.</p>
+            </div>
 
             {tickets.length === 0 ? (
-                <p>No tickets found.</p>
+                <p className="rounded-lg border border-dashed border-zinc-300 bg-white p-6 text-sm text-zinc-600">No tickets found.</p>
             ) : (
-                <ul>
+                <ul className="space-y-4">
                     {tickets.map((ticket) => (
                         <TicketListItem
                             key={ticket.id}
@@ -37,6 +38,6 @@ export default function ResolverTicketsPage() {
                     ))}
                 </ul>
             )}
-        </main>
+        </section>
     );
 }

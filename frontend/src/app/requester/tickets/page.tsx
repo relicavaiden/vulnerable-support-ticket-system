@@ -61,30 +61,36 @@ export default function RequesterTicketsPage() {
 
 
     return (
-        <main>
+        <section className="space-y-8">
+            <div>
+                <h1 className="text-2xl font-semibold text-zinc-900">My Tickets</h1>
+                
+                <p className="mt-1 text-sm text-zinc-600">This is where requester tickets will appear.</p>
+            </div>
 
-            <CreateTicketForm
-                title={title}
-                description={description}
-                category={category}
-                createError={createError}
-                isCreating={isCreating}
-                onSubmit={handleCreateTicket}
-                onTitleChange={setTitle}
-                onDescriptionChange={setDescription}
-                onCategoryChange={setCategory}
-            />
+            <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
+                <CreateTicketForm
+                    title={title}
+                    description={description}
+                    category={category}
+                    createError={createError}
+                    isCreating={isCreating}
+                    onSubmit={handleCreateTicket}
+                    onTitleChange={setTitle}
+                    onDescriptionChange={setDescription}
+                    onCategoryChange={setCategory}
+                />
+            </div>
 
-            <h1>Requester Tickets</h1>
-            <LogoutButton />
-            <p>This is where requester tickets will appear.</p>
+            <div className="space-y-4">
+                <h2 className="text-lg font-semibold text-zinc-900"> Submitted Tickets</h2>
+            </div>
 
-            
 
             {tickets.length === 0 ? (
-                <p>No tickets found.</p>
+                <p className="rounded-lg border border-dashed border-zinc-300 bg-white p-6 text-sm text-zinc-600">No tickets found.</p>
             ) : (
-                <ul>
+                <ul className="space-y-4">
                     {tickets.map((ticket) => (
                         <TicketListItem
                             key={ticket.id}
@@ -94,6 +100,6 @@ export default function RequesterTicketsPage() {
                     ))}
                 </ul>
             )}
-        </main>
+        </section>
     );
 }

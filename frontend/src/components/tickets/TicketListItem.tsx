@@ -13,15 +13,17 @@ export default function TicketListItem ({
     href,
 }: TicketListItemProps) {
     return (
-        <li>
-            <h2>
+        <li className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-zinc-900">
                 <Link href={href}>
                     {ticket.title}
                 </Link>
             </h2>
-            <p>{ticket.description}</p>
-            <p>Status: {formatStatus(ticket.status)}</p>
-            <p>Category: {formatCategory(ticket.category)}</p>
+            <p className="mt-2 text-sm text-zinc-600">{ticket.description}</p>
+            <div className="mt-4 flex flex-wrap gap-2 text-sm text-zinc-600">
+                <p>Status: {formatStatus(ticket.status)}</p>
+                <p>Category: {formatCategory(ticket.category)}</p>
+            </div>
         </li>
     );
 }
