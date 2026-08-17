@@ -17,9 +17,11 @@ export default function TicketNotesList({
             <ul className="space-y-3">
                 {notes.map((note) => (
                     <li key={note.id} className="rounded-lg border border-zinc-200 bg-white p-4">
-                        <p>{note.body}</p>
-                        <p>Added by: {note.author_username}</p>
-                        <p>Created: {note.created_at}</p>
+                        <p className="text-sm leading-6 text-zinc-800">{note.body}</p>
+                        <div className="mt-3 space-y-1 text-xs text-zinc-500">
+                            <p>Added by: {note.author_username}</p>
+                            <p>Created: {note.created_at}</p>
+                        </div>
                     </li>
                 ))}
             </ul>

@@ -67,7 +67,7 @@ export default function CreateTicketForm({
                 </select>
             </div>
 
-            {createError && <p>{createError}</p>}
+            {createError && <p className="text-sm text-red-600">{createError}</p>}
 
             <button type="submit" disabled={isCreating} className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">
                 {isCreating ? "Creating..." : "Create Ticket"}

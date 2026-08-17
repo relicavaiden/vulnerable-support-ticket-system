@@ -86,8 +86,6 @@ export default function RequesterTicketDetail(){
             <main>
                 <TicketSummary ticket={ticket}/>
 
-                <h2>Notes</h2>
-
                 <TicketNotesList notes={visibleNotes} />
 
                 <TicketNoteForm

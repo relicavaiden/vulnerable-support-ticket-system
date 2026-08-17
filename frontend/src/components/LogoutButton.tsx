@@ -30,11 +30,12 @@ export default function LogoutButton() {
                 type="button"
                 onClick={handleLogout}
                 disabled={isLoggingOut}
+                className="rounded-md border-2 bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
             >
                 {isLoggingOut ? "Logging out.." : "Logout"}
             </button>
 
-            {logoutError && <p>{logoutError}</p>}
+            {logoutError && <p className="text-sm text-red-600">{logoutError}</p>}
         </>
     )
 }

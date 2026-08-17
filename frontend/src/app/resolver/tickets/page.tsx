@@ -1,6 +1,5 @@
 "use client";
 
-import LogoutButton from "@/components/LogoutButton";
 import TicketListItem from "@/components/tickets/TicketListItem";
 import { useTicketList } from "@/hooks/useTicketList";
 

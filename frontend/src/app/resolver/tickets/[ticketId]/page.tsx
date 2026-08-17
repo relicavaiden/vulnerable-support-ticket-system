@@ -134,8 +134,6 @@ export default function ResolverTicketDetailPage() {
                         onStatusChange={setSelectedStatus}
                     />
     
-                    <h2>Notes</h2>
-    
                     <TicketNotesList notes={visibleNotes} />
                     <TicketNoteForm
                         heading="Add Resolver Note"

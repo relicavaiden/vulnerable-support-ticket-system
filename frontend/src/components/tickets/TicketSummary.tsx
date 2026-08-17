@@ -13,7 +13,7 @@ export default function TicketSummary({
             <h1 className="text-2xl font-semibold text-zinc-900">{ticket.title}</h1>
             <p className="mt-3 text-sm leading-6 text-zinc-600">{ticket.description}</p>
 
-            <div className="mt-5 flex-wrap gap-3 text-sm text-zinc-600">
+            <div className="mt-5 flex flex-wrap gap-3 text-sm text-zinc-600">
                 <span>Status: {formatStatus(ticket.status)}</span>
                 <span>Category: {formatCategory(ticket.category)}</span>
             </div>
