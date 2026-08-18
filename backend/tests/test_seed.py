@@ -2,11 +2,7 @@ from app import create_app
 from app.db import get_db, init_db
 from app.seed import seed_db
 
-def test_creates_seed_users_without_duplicates(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "seed.db"
-    app.config["DATABASE"] = str(database_path)
-
+def test_creates_seed_users_without_duplicates(app):
     with app.app_context():
         init_db()
         seed_db()

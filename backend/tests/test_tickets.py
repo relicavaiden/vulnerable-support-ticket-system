@@ -2,11 +2,7 @@ from app import create_app
 from app.db import get_db, init_db
 from app.seed import seed_db
 
-def test_get_tickets_without_login_returns_401(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-
+def test_get_tickets_without_login_returns_401(app):
     with app.app_context():
         init_db()
 
@@ -20,12 +16,7 @@ def test_get_tickets_without_login_returns_401(tmp_path):
 
     assert data["error"] == "Not authenticated"
 
-def test_get_tickets_with_logged_in_requester_returns_ticket_list(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_get_tickets_with_logged_in_requester_returns_ticket_list(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -53,12 +44,7 @@ def test_get_tickets_with_logged_in_requester_returns_ticket_list(tmp_path):
     assert "tickets" in data
     assert isinstance(data["tickets"], list)
 
-def test_logged_in_requester_can_create_ticket(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_logged_in_requester_can_create_ticket(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -122,12 +108,7 @@ def test_logged_in_requester_can_create_ticket(tmp_path):
         assert ticket is not None
         assert ticket["requester_id"] == requester["id"]
 
-def test_logged_in_requester_can_list_their_created_tickets(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_logged_in_requester_can_list_their_created_tickets(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -171,12 +152,7 @@ def test_logged_in_requester_can_list_their_created_tickets(tmp_path):
     assert ticket["category"] == "account_access"
     assert ticket["status"] == "open"
 
-def test_requester_only_lists_their_own_tickets(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_requester_only_lists_their_own_tickets(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -248,12 +224,7 @@ def test_requester_only_lists_their_own_tickets(tmp_path):
     assert len(data["tickets"]) == 1
     assert data["tickets"][0]["title"] == "My ticket"
 
-def test_resolver_cannot_create_ticket(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_resolver_cannot_create_ticket(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -294,12 +265,7 @@ def test_resolver_cannot_create_ticket(tmp_path):
 
         assert len(tickets) == 0
 
-def test_resolver_lists_assigned_tickets(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_resolver_lists_assigned_tickets(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -369,12 +335,7 @@ def test_resolver_lists_assigned_tickets(tmp_path):
     assert ticket["category"] == "account_access"
     assert ticket["status"] == "open"
 
-def test_resolver_only_lists_their_assigned_tickets(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_resolver_only_lists_their_assigned_tickets(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -475,12 +436,7 @@ def test_resolver_only_lists_their_assigned_tickets(tmp_path):
     assert ticket["category"] == "account_access"
     assert ticket["status"] == "open"
 
-def test_create_ticket_uses_session_user_not_request_body_requester_id(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_create_ticket_uses_session_user_not_request_body_requester_id(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -544,12 +500,7 @@ def test_create_ticket_uses_session_user_not_request_body_requester_id(tmp_path)
         assert ticket["requester_id"] == requester["id"]
         assert ticket["requester_id"] != other_requester_id
 
-def test_create_ticket_uses_backend_assigned_resolver_not_request_body(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_create_ticket_uses_backend_assigned_resolver_not_request_body(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -613,12 +564,7 @@ def test_create_ticket_uses_backend_assigned_resolver_not_request_body(tmp_path)
         assert ticket["assigned_resolver_id"] == resolver["id"]
         assert ticket["assigned_resolver_id"] != other_resolver_id
 
-def test_unauthenticated_user_cannot_view_ticket_detail(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_unauthenticated_user_cannot_view_ticket_detail(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -633,12 +579,7 @@ def test_unauthenticated_user_cannot_view_ticket_detail(tmp_path):
 
     assert data["error"] == "Not authenticated"
 
-def test_requester_can_view_own_ticket_detail(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_requester_can_view_own_ticket_detail(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -709,12 +650,7 @@ def test_requester_can_view_own_ticket_detail(tmp_path):
     assert ticket["status"] == "open"
     assert ticket["category"] == "account_access"
 
-def test_requester_cannot_view_another_requesters_ticket_detail(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_requester_cannot_view_another_requesters_ticket_detail(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -782,12 +718,7 @@ def test_requester_cannot_view_another_requesters_ticket_detail(tmp_path):
 
         assert data["error"] == "Forbidden"
 
-def test_resolver_can_view_assigned_ticket_detail(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_resolver_can_view_assigned_ticket_detail(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -858,12 +789,7 @@ def test_resolver_can_view_assigned_ticket_detail(tmp_path):
     assert ticket["status"] == "open"
     assert ticket["category"] == "account_access"
 
-def test_resolver_cannot_view_ticket_assigned_to_another_resolver(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_resolver_cannot_view_ticket_assigned_to_another_resolver(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -931,12 +857,7 @@ def test_resolver_cannot_view_ticket_assigned_to_another_resolver(tmp_path):
 
     assert data["error"] == "Forbidden"
 
-def test_logged_in_user_gets_404_for_missing_ticket_detail(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_logged_in_user_gets_404_for_missing_ticket_detail(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -961,12 +882,7 @@ def test_logged_in_user_gets_404_for_missing_ticket_detail(tmp_path):
 
     assert data["error"] == "Ticket not found"
 
-def test_unauthenticated_user_cannot_add_ticket_note(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_unauthenticated_user_cannot_add_ticket_note(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -986,12 +902,7 @@ def test_unauthenticated_user_cannot_add_ticket_note(tmp_path):
 
     assert data["error"] == "Not authenticated"
 
-def test_requester_can_add_note_to_own_ticket(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_requester_can_add_note_to_own_ticket(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -1079,12 +990,7 @@ def test_requester_can_add_note_to_own_ticket(tmp_path):
         assert note["note_type"] == "requester_note"
         assert note["body"] == "I am still having trouble accessing my account."
 
-def test_resolver_can_add_note_to_assigned_ticket(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-    
+def test_resolver_can_add_note_to_assigned_ticket(app):    
     with app.app_context():
         init_db()
         seed_db()
@@ -1172,12 +1078,7 @@ def test_resolver_can_add_note_to_assigned_ticket(tmp_path):
         assert note["note_type"] == "resolver_note"
         assert note["body"] == "I am reviewing this account access issue."
 
-def test_requester_cannot_add_note_to_another_requesters_ticket(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_requester_cannot_add_note_to_another_requesters_ticket(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -1264,12 +1165,7 @@ def test_requester_cannot_add_note_to_another_requesters_ticket(tmp_path):
 
         assert len(notes) == 0
 
-def test_resolver_cannot_add_note_to_ticket_assigned_to_another_resolver(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_resolver_cannot_add_note_to_ticket_assigned_to_another_resolver(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -1356,12 +1252,7 @@ def test_resolver_cannot_add_note_to_ticket_assigned_to_another_resolver(tmp_pat
 
         assert len(notes) == 0
 
-def test_logged_in_user_gets_404_when_adding_note_to_missing_ticket(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_logged_in_user_gets_404_when_adding_note_to_missing_ticket(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -1400,12 +1291,7 @@ def test_logged_in_user_gets_404_when_adding_note_to_missing_ticket(tmp_path):
 
         assert len(notes) == 0
 
-def test_cannot_add_note_without_body(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_cannot_add_note_without_body(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -1481,12 +1367,7 @@ def test_cannot_add_note_without_body(tmp_path):
 
         assert len(notes) == 0
 
-def test_cannot_add_note_with_empty_body(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_cannot_add_note_with_empty_body(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -1564,12 +1445,7 @@ def test_cannot_add_note_with_empty_body(tmp_path):
 
         assert len(notes) == 0
 
-def test_cannot_add_note_with_whitespace_only_body(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_cannot_add_note_with_whitespace_only_body(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -1647,12 +1523,7 @@ def test_cannot_add_note_with_whitespace_only_body(tmp_path):
 
         assert len(notes) == 0
 
-def test_cannot_add_note_with_non_string_body(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_cannot_add_note_with_non_string_body(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -1730,12 +1601,7 @@ def test_cannot_add_note_with_non_string_body(tmp_path):
 
         assert len(notes) == 0
 
-def test_note_body_is_trimmed_before_saving(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_note_body_is_trimmed_before_saving(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -1818,12 +1684,7 @@ def test_note_body_is_trimmed_before_saving(tmp_path):
         assert note is not None
         assert note["body"] == "I still cannot access my account."
 
-def test_ticket_detail_includes_notes_for_authorized_user(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_ticket_detail_includes_notes_for_authorized_user(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -1933,12 +1794,7 @@ def test_ticket_detail_includes_notes_for_authorized_user(tmp_path):
     assert notes[1]["body"] == "This is note two of two."
     assert notes[1]["note_type"] == "resolver_note"
 
-def test_ticket_detail_returns_empty_notes_list_when_no_notes_exist(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_ticket_detail_returns_empty_notes_list_when_no_notes_exist(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2003,12 +1859,7 @@ def test_ticket_detail_returns_empty_notes_list_when_no_notes_exist(tmp_path):
     assert "notes" in data["ticket"]
     assert data["ticket"]["notes"] == []
 
-def test_unauthenticated_user_cannot_update_ticket_status(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-    
+def test_unauthenticated_user_cannot_update_ticket_status(app):    
     with app.app_context():
         init_db()
         seed_db()
@@ -2028,12 +1879,7 @@ def test_unauthenticated_user_cannot_update_ticket_status(tmp_path):
 
     assert data["error"] == "Not authenticated"
 
-def test_requester_cannot_update_ticket_status(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_requester_cannot_update_ticket_status(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2115,12 +1961,7 @@ def test_requester_cannot_update_ticket_status(tmp_path):
 
         assert ticket["status"] == "open"
 
-def test_resolver_gets_404_when_updating_missing_ticket_status(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_resolver_gets_404_when_updating_missing_ticket_status(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2150,12 +1991,7 @@ def test_resolver_gets_404_when_updating_missing_ticket_status(tmp_path):
 
     assert data["error"] == "Ticket not found"
 
-def test_resolver_cannot_update_status_for_ticket_assigned_to_another_resolver(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_resolver_cannot_update_status_for_ticket_assigned_to_another_resolver(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2247,12 +2083,7 @@ def test_resolver_cannot_update_status_for_ticket_assigned_to_another_resolver(t
 
         assert ticket["status"] == "open"
 
-def test_assigned_resolver_can_update_ticket_status(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_assigned_resolver_can_update_ticket_status(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2335,12 +2166,7 @@ def test_assigned_resolver_can_update_ticket_status(tmp_path):
 
         assert ticket["status"] == "in_progress"
 
-def test_assigned_resolver_cannot_update_ticket_status_to_invalid_value(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_assigned_resolver_cannot_update_ticket_status_to_invalid_value(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2423,12 +2249,7 @@ def test_assigned_resolver_cannot_update_ticket_status_to_invalid_value(tmp_path
 
         assert ticket["status"] == "open"
 
-def test_resolver_cannot_update_ticket_status_to_invalid_value(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_resolver_cannot_update_ticket_status_to_invalid_value(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2511,12 +2332,7 @@ def test_resolver_cannot_update_ticket_status_to_invalid_value(tmp_path):
 
         assert ticket["status"] == "open"
 
-def test_assigned_resolver_cannot_update_ticket_status_without_status_field(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_assigned_resolver_cannot_update_ticket_status_without_status_field(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2596,12 +2412,7 @@ def test_assigned_resolver_cannot_update_ticket_status_without_status_field(tmp_
 
         assert ticket["status"] == "open"
 
-def test_status_update_creates_status_update_note(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_status_update_creates_status_update_note(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2683,12 +2494,7 @@ def test_status_update_creates_status_update_note(tmp_path):
         assert note["note_type"] == "status_update"
         assert note["body"] == "Status changed from open to in_progress."
 
-def test_ticket_detail_includes_status_update_note_after_status_change(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_ticket_detail_includes_status_update_note_after_status_change(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2776,12 +2582,7 @@ def test_ticket_detail_includes_status_update_note_after_status_change(tmp_path)
     assert notes[0]["note_type"] == "status_update"
     assert notes[0]["body"] == "Status changed from open to in_progress."
 
-def test_duplicate_ticket_titles_return_unique_tickets(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_duplicate_ticket_titles_return_unique_tickets(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2832,12 +2633,7 @@ def test_duplicate_ticket_titles_return_unique_tickets(tmp_path):
     assert first_data["ticket"]["title"] == "Duplicate Tickets"
     assert second_data["ticket"]["title"] == "Duplicate Tickets"
 
-def test_user_cannot_create_ticket_with_whitespace_only_title(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_user_cannot_create_ticket_with_whitespace_only_title(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2865,12 +2661,7 @@ def test_user_cannot_create_ticket_with_whitespace_only_title(tmp_path):
     
     assert response.status_code == 400, response.get_data(as_text=True)
 
-def test_user_cannot_create_ticket_with_whitespace_only_description(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_user_cannot_create_ticket_with_whitespace_only_description(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2901,12 +2692,7 @@ def test_user_cannot_create_ticket_with_whitespace_only_description(tmp_path):
     assert response.status_code == 400, response.get_data(as_text=True)
     assert data["error"] == "Description is required"
 
-def test_create_ticket_trims_title_and_description(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_create_ticket_trims_title_and_description(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2943,12 +2729,7 @@ def test_create_ticket_trims_title_and_description(tmp_path):
     assert ticket["title"] == "Display issue"
     assert ticket["description"] == "Display will not show."
 
-def test_user_cannot_create_ticket_with_invalid_category(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_user_cannot_create_ticket_with_invalid_category(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -2983,12 +2764,7 @@ def test_user_cannot_create_ticket_with_invalid_category(tmp_path):
     assert data["error"] == "Invalid category"
     assert "ticket" not in data
 
-def test_if_no_resolver_returns_500(tmp_path):
-    app = create_app()
-    database_path = tmp_path / "tickets.db"
-    app.config["DATABASE"] = str(database_path)
-    app.config["TESTING"] = True
-
+def test_if_no_resolver_returns_500(app):
     with app.app_context():
         init_db()
         seed_db()
