@@ -11,4 +11,4 @@ def test_init_db_creates_expected_tables(app):
         ).fetchall()
         table_names = { table["name"] for table in tables }
 
-    assert table_names == { "users", "tickets", "ticket_notes" }
+    assert table_names == { "users", "tickets", "ticket_notes", "login_rate_limits" }

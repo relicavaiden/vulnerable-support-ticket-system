@@ -45,3 +45,16 @@ CREATE TABLE ticket_notes (
     FOREIGN KEY (ticket_id) REFERENCES tickets(id),
     FOREIGN KEY (author_id) REFERENCES users(id)
 );
+
+CREATE TABLE login_rate_limits (
+    id INTEGER PRIMARY KEY,
+    scope TEXT NOT NULL
+        CHECK (scope IN ('ip', 'ip_username')),
+    rate_limit_key TEXT NOT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 0
+        CHECK (attempt_count >= 0),
+    window_started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    blocked_until TIMESTAMP DEFAULT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (scope, rate_limit_key)
+)

@@ -57,7 +57,32 @@ def test_session_signed_with_legacy_secret_is_rejected(app):
 
         assert data["error"] == "Not authenticated"
 
+def test_repeated_failed_login_attempts_are_not_rate_limited(app):
+    with app.app_context():
+        init_db()
+        seed_db()
 
+    client = app.test_client()
+
+    for _ in range(10):
+        response = client.post(
+            "/api/auth/login",
+            json={
+                "username": "requester_demo",
+                "password": "wrong-password",
+            },
+        )
+        assert response.status_code == 401
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": "requester_demo",
+            "password": "requester123",
+        },
+    )
+
+    assert login_response.status_code == 200, login_response.get_data(as_text=True)
 
 
 def test_login_with_valid_seed_user_returns_user(app):
