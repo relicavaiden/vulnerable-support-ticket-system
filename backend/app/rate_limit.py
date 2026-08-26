@@ -1,5 +1,11 @@
 from .db import get_db
-from datetime import datetime
+from datetime import datetime, timedelta
+
+IP_USERNAME_MAX_ATTEMPTS = 5
+IP_MAX_ATTEMPTS = 20
+
+RATE_LIMIT_WINDOW_SECONDS = 60
+RATE_LIMIT_COOLDOWN_SECONDS = 60
 
 def get_rate_limit(scope, rate_limit_key):
     db = get_db()
@@ -104,6 +110,8 @@ def reset_rate_limit(scope, rate_limit_key):
 def block_rate_limit(scope, rate_limit_key, blocked_until):
     db = get_db()
 
+    blocked_until_value = blocked_until.isoformat(sep=" ")
+
     db.execute(
         """
         UPDATE login_rate_limits
@@ -113,11 +121,11 @@ def block_rate_limit(scope, rate_limit_key, blocked_until):
             AND rate_limit_key = ?
         """,
         (
-            blocked_until,
+            blocked_until_value,
             scope,
             rate_limit_key,
         )
-    ),
+    )
 
     db.commit()
 
@@ -189,3 +197,58 @@ def record_rate_limit_attempt(scope, rate_limit_key, current_time):
             scope,
             rate_limit_key,
         )
+
+def has_rate_limit_reached_threshold(record, max_attempts):
+    return record["attempt_count"] >= max_attempts
+
+def apply_rate_limit_threshold(
+        record,
+        current_time,
+):
+    cooldown_seconds = RATE_LIMIT_COOLDOWN_SECONDS
+    max_attempts = get_rate_limit_max_attempts(
+        record["scope"]
+    )
+
+    if has_rate_limit_reached_threshold(
+        record,
+        max_attempts,
+    ) is False:
+        return False
+    
+
+    blocked_until = current_time + timedelta(seconds=cooldown_seconds)
+
+    block_rate_limit(
+        record["scope"],
+        record["rate_limit_key"],
+        blocked_until,
+    )
+    return True
+
+def get_rate_limit_max_attempts(scope):
+    if scope == "ip_username":
+        return IP_USERNAME_MAX_ATTEMPTS
+
+    if scope == "ip":
+        return IP_MAX_ATTEMPTS
+
+    if scope not in {"ip_username", "ip"}:
+        raise ValueError("Invalid rate-limit scope")
+
+def record_and_apply_rate_limit(scope, rate_limit_key, current_time):
+    record = record_rate_limit_attempt(
+        scope,
+        rate_limit_key,
+        current_time,
+    )
+
+    apply_rate_limit_threshold(
+        record,
+        current_time,
+    )
+
+    return get_rate_limit(
+        scope,
+        rate_limit_key,
+    )

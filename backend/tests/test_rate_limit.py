@@ -1,7 +1,8 @@
 from app.db import get_db, init_db
-from app.rate_limit import get_rate_limit, create_rate_limit, increment_rate_limit, reset_rate_limit, block_rate_limit, is_rate_limit_blocked, has_rate_limit_window_expired, record_rate_limit_attempt
+from app.rate_limit import RATE_LIMIT_COOLDOWN_SECONDS, get_rate_limit, create_rate_limit, increment_rate_limit, reset_rate_limit, block_rate_limit, is_rate_limit_blocked, has_rate_limit_window_expired, record_rate_limit_attempt, has_rate_limit_reached_threshold, apply_rate_limit_threshold, get_rate_limit_max_attempts,record_and_apply_rate_limit
 
 from datetime import datetime, timedelta
+import pytest
 
 def test_get_rate_limit_returns_none_when_record_does_not_exist(app):
     with app.app_context():
@@ -131,11 +132,19 @@ def test_block_rate_limit_returns_time(app):
             "192.168.1.20",
             20,
         )
+        blocked_until = datetime(
+            2026,
+            10,
+            31,
+            23,
+            0,
+            0,
+        )
 
         block_rate_limit(
             "ip",
             "192.168.1.20",
-            "2026-10-31 23:00:00",
+            blocked_until,
         )
 
         record = get_rate_limit(
@@ -182,10 +191,19 @@ def test_is_rate_limit_blocked_returns_true(app):
             "192.168.1.20",
         )
 
+        blocked_until = datetime(
+            2026,
+            8,
+            20,
+            23,
+            0,
+            0,
+        )
+
         block_rate_limit(
             "ip",
             "192.168.1.20",
-            "2026-08-10 23:10:00",
+            blocked_until,
         )
 
         record = get_rate_limit(
@@ -214,10 +232,19 @@ def test_is_rate_limit_blocked_returns_false_at_expiry(app):
             "192.168.1.20"
         )
 
+        blocked_until = datetime(
+            2026,
+            8,
+            20,
+            23,
+            0,
+            0,
+        )
+
         block_rate_limit(
             "ip",
             "192.168.1.20",
-            "2026-08-20 23:00:00"
+            blocked_until,
         )
 
         record = get_rate_limit(
@@ -397,3 +424,299 @@ def test_count_updates_while_window_is_still_active(app):
             record["window_started_at"]
         )
         assert stored_window_start == old_time
+
+def test_rate_limit_below_threshold_returns_false(app):
+    with app.app_context():
+        init_db()
+
+        create_rate_limit(
+            "ip",
+            "192.168.1.20",
+            4,
+        )
+
+        record = get_rate_limit(
+            "ip",
+            "192.168.1.20",
+        )
+
+        assert record is not None
+        assert has_rate_limit_reached_threshold(record, 5) is False
+
+def test_rate_limit_at_threshold_returns_true(app):
+    with app.app_context():
+        init_db()
+
+        create_rate_limit(
+            "ip",
+            "192.168.1.20",
+            5,
+        )
+
+        record = get_rate_limit(
+            "ip",
+            "192.168.1.20",
+        )
+
+        assert record is not None
+        assert has_rate_limit_reached_threshold(record, 5) is True
+
+def test_rate_limit_sets_block_until_after_threshold(app):
+    with app.app_context():
+        init_db()
+
+        create_rate_limit(
+            "ip",
+            "192.168.1.20",
+            5,
+        )
+
+        current_time = datetime(
+            2026,
+            8,
+            30,
+            23,
+            0,
+            0,
+        )
+
+        blocked_until = current_time + timedelta(seconds=60)
+
+        block_rate_limit(
+            "ip",
+            "192.168.1.20",
+            blocked_until
+        )
+
+        record = get_rate_limit(
+            "ip",
+            "192.168.1.20",
+        )
+
+        assert record is not None
+
+        stored_blocked_until = datetime.fromisoformat(
+            record["blocked_until"]
+        )
+        assert stored_blocked_until == blocked_until
+
+def test_rate_limit_threshold_and_block_rate_limit_reached_returns_true(app):
+    with app.app_context():
+        init_db()
+
+        create_rate_limit(
+            "ip",
+            "192.168.1.20",
+            5,
+        )
+
+        record = get_rate_limit(
+            "ip",
+            "192.168.1.20",
+        )
+
+        assert record is not None
+
+        current_time = datetime(
+            2026,
+            8,
+            30,
+            23,
+            0,
+            0
+        )
+
+        has_rate_limit_reached_threshold(record, 5)
+
+        assert has_rate_limit_reached_threshold(record, 5) is True
+
+def test_threshold_sets_sixty_seconds_cooldown_for_ip(app):
+    with app.app_context():
+        init_db()
+
+        create_rate_limit(
+            "ip_username",
+            "192.168.1.20:requester_demo",
+            5,
+        )
+
+        record = get_rate_limit(
+            "ip_username",
+            "192.168.1.20:requester_demo",
+        )
+
+        assert record is not None
+
+        current_time = datetime(
+            2026,
+            8,
+            30,
+            23,
+            0,
+            0
+        )
+
+        cooldown_seconds = 60
+
+        threshold_applied = apply_rate_limit_threshold(
+            record,
+            current_time,
+        )
+
+        assert threshold_applied is True
+
+        expected_blocked_until = current_time + timedelta(
+            seconds=cooldown_seconds
+        )
+
+        record = get_rate_limit(
+            "ip_username",
+            "192.168.1.20:requester_demo",
+        )
+
+        assert record is not None
+
+        stored_blocked_until = datetime.fromisoformat(
+            record["blocked_until"]
+        )
+
+        assert stored_blocked_until == expected_blocked_until
+
+def test_threshold_sets_sixty_seconds_cooldown_for_ip_username(app):
+    with app.app_context():
+        init_db()
+
+        create_rate_limit(
+            "ip",
+            "192.168.1.20",
+            20,
+        )
+
+        record = get_rate_limit(
+            "ip",
+            "192.168.1.20",
+        )
+
+        assert record is not None
+
+        current_time = datetime(
+            2026,
+            8,
+            30,
+            23,
+            0,
+            0
+        )
+
+        cooldown_seconds = 60
+
+        threshold_applied = apply_rate_limit_threshold(
+            record,
+            current_time,
+        )
+
+        assert threshold_applied is True
+
+        expected_blocked_until = current_time + timedelta(
+            seconds=cooldown_seconds
+        )
+
+        record = get_rate_limit(
+            "ip",
+            "192.168.1.20",
+        )
+
+        assert record is not None
+
+        stored_blocked_until = datetime.fromisoformat(
+            record["blocked_until"]
+        )
+
+        assert stored_blocked_until == expected_blocked_until
+
+def test_below_threshold_does_not_set_cooldown(app):
+    with app.app_context():
+        init_db()
+
+        create_rate_limit(
+            "ip",
+            "192.168.1.20",
+            4,
+        )
+
+        record = get_rate_limit(
+            "ip",
+            "192.168.1.20",
+        )
+
+        assert record is not None
+
+        current_time = datetime(
+            2026,
+            8,
+            30,
+            23,
+            0,
+            0
+        )
+
+        threshold_applied = apply_rate_limit_threshold(record, current_time)
+
+        assert threshold_applied is False
+
+        record = get_rate_limit(
+            "ip",
+            "192.168.1.20",
+        )
+
+        assert record is not None
+        assert record["blocked_until"] is None
+
+def test_get_ip_and_ip_username_constraint_values():
+    assert get_rate_limit_max_attempts("ip_username") == 5
+    assert get_rate_limit_max_attempts("ip") == 20
+
+def test_get_rate_limit_max_attempts_rejects_invaild_scope():
+    with pytest.raises(
+        ValueError,
+        match="Invalid rate-limit scope",
+    ):
+        get_rate_limit_max_attempts("unknown")
+
+def test_record_and_apply_rate_limit_blocks_at_threshold(app):
+    with app.app_context():
+        init_db()
+
+        current_time = datetime(
+            2026,
+            8,
+            30,
+            23,
+            0,
+            0
+        )
+
+        old_time = current_time - timedelta(seconds=30)
+
+        create_rate_limit(
+            "ip_username",
+            "192.168.1.20:requester_demo",
+            4,
+            window_started_at = old_time,
+        )
+
+        record = record_and_apply_rate_limit(
+            "ip_username",
+            "192.168.1.20:requester_demo",
+            current_time,
+        )
+
+        assert record is not None
+        assert record["attempt_count"] == 5
+        assert record["blocked_until"] is not None
+
+        stored_blocked_until = datetime.fromisoformat(
+            record["blocked_until"]
+        )
+
+        assert stored_blocked_until == current_time + timedelta(seconds=60)
