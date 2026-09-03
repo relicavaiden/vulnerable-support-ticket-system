@@ -4,6 +4,8 @@ from app.rate_limit import RATE_LIMIT_COOLDOWN_SECONDS, get_rate_limit, create_r
 from datetime import datetime, timedelta
 import pytest
 
+from app.seed import seed_db
+
 def test_get_rate_limit_returns_none_when_record_does_not_exist(app):
     with app.app_context():
         init_db()
@@ -720,3 +722,264 @@ def test_record_and_apply_rate_limit_blocks_at_threshold(app):
         )
 
         assert stored_blocked_until == current_time + timedelta(seconds=60)
+
+def test_login_rate_limits_ip_after_twenty_requests(app):
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        client = app.test_client()
+
+        for i in range(20):
+            login_response = client.post(
+                "/api/auth/login",
+                json={
+                    "username": f"requester_demo_{i}",
+                    "password": "wrong-password"
+                },
+            )
+
+            assert login_response.status_code == 401
+
+        blocked_response = client.post(
+            "/api/auth/login",
+            json={
+                "username": "requester_demo",
+                "password": "wrong-password",
+            },
+        )
+
+        assert blocked_response.status_code == 429
+
+def test_login_blocks_ip_username_after_five_failures(app):
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        client = app.test_client()
+
+        for _ in range(5):
+            login_response = client.post(
+                "/api/auth/login",
+                json={
+                    "username": "requester_demo",
+                    "password": "wrong-password",
+                },
+            )
+
+            assert login_response.status_code == 401
+
+        blocked_response = client.post(
+            "/api/auth/login",
+            json={
+                "username": "requester_demo",
+                "password": "wrong-password",
+            }
+        )
+
+        assert blocked_response.status_code == 429
+
+def test_successful_login_resets_ip_username_failures(app):
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        client = app.test_client()
+
+        for _ in range(3):
+            login_response = client.post(
+                "/api/auth/login",
+                json={
+                    "username": "requester_demo",
+                    "password": "wrong-password",
+                },
+            )
+
+            assert login_response.status_code == 401
+
+        correct_login = client.post(
+            "/api/auth/login",
+            json={
+                "username": "requester_demo",
+                "password": "requester123",
+            },
+        )
+
+        assert correct_login.status_code == 200
+
+        pair_key = "127.0.0.1:requester_demo"
+
+        pair_record = get_rate_limit(
+            "ip_username",
+            pair_key,
+        )
+
+        assert pair_record is None
+
+def test_blocked_ip_username_rejects_correct_password_during_cooldown(app):
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        client = app.test_client()
+
+        for _ in range(5):
+            login_reponse = client.post(
+                "/api/auth/login",
+                json={
+                    "username": "requester_demo",
+                    "password": "wrong-password",
+                },
+            )
+
+            assert login_reponse.status_code == 401
+
+        correct_login = client.post(
+            "/api/auth/login",
+            json={
+                "username": "requester_demo",
+                "password": "requester123",
+            },
+        )
+
+        assert correct_login.status_code == 429
+
+def test_expired_ip_username_block_allow_login(app):
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        pair_key = "127.0.0.1:requester_demo"
+
+        current_time = datetime.now()
+        expired_block = current_time - timedelta(seconds=1)
+
+        create_rate_limit(
+            "ip_username",
+            pair_key,
+            attempt_count=5,
+            window_started_at=current_time - timedelta(seconds=30),
+        )
+
+        block_rate_limit(
+            "ip_username",
+            pair_key,
+            expired_block,
+        )
+
+
+        client = app.test_client()
+
+        login_response = client.post(
+            "/api/auth/login",
+            json={
+                "username": "requester_demo",
+                "password": "requester123",
+            },
+        )
+
+        assert login_response.status_code == 200
+
+        pair_record = get_rate_limit(
+            "ip_username",
+            pair_key,
+        )
+
+        assert pair_record is None
+
+def test_unknown_username_is_rate_limited_by_ip_username(app):
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        client = app.test_client()
+
+        for _ in range(5):
+            login_response = client.post(
+                "/api/auth/login",
+                json={
+                    "username": "unknown",
+                    "password": "requester12",
+                }
+            )
+
+            assert login_response.status_code == 401
+
+        bad_login = client.post(
+            "/api/auth/login",
+            json={
+                "username": "unknown",
+                "password": "requester12",
+            }
+        )
+
+        assert bad_login.status_code == 429
+
+def test_blocked_ip_username_does_not_block_different_username(app):
+    with app.app_context():
+        init_db()
+        seed_db()
+    
+        client = app.test_client()
+    
+        for _ in range(5):
+            login_response = client.post(
+                "/api/auth/login",
+                json={
+                    "username": "unknown",
+                    "password": "requester12",
+                }
+            )
+    
+            assert login_response.status_code == 401
+    
+        new_username = client.post(
+            "/api/auth/login",
+            json={
+                "username": "unknown2",
+                "password": "requester12",
+            }
+        )
+    
+        assert new_username.status_code == 401
+
+def test_blocked_ip_username_does_not_block_same_username_from_different_ip(app):
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        client = app.test_client()
+
+        for _ in range(5):
+            login_response = client.post(
+                "/api/auth/login",
+                json={
+                    "username": "requester_demo",
+                    "password": "requester",
+                },
+                environ_base={"REMOTE_ADDR": "192.168.1.10"}
+            )
+
+            assert login_response.status_code == 401
+
+        login_response_two = client.post(
+            "/api/auth/login",
+            json={
+                "username": "requester_demo",
+                "password": "requester",
+            },
+            environ_base={"REMOTE_ADDR": "192.168.1.10"}
+        )
+        
+        assert login_response_two.status_code == 429
+
+        new_login = client.post(
+            "/api/auth/login",
+            json={
+                "username": "requester_demo",
+                "password": "requester",
+            },
+             environ_base={"REMOTE_ADDR": "192.168.1.11"}
+        )
+
+        assert new_login.status_code == 401
