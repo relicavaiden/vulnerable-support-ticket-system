@@ -57,6 +57,7 @@ def test_session_signed_with_legacy_secret_is_rejected(app):
 
         assert data["error"] == "Not authenticated"
 
+@pytest.mark.skip(reason="V1 vulnerability reproduction; V2 now rate-limits repeated login attempts")
 def test_repeated_failed_login_attempts_are_not_rate_limited(app):
     with app.app_context():
         init_db()

@@ -723,7 +723,7 @@ def test_record_and_apply_rate_limit_blocks_at_threshold(app):
 
         assert stored_blocked_until == current_time + timedelta(seconds=60)
 
-def test_login_rate_limits_ip_after_twenty_requests(app):
+def test_ip_rate_limit_blocks_next_requeest_after_twenty_attempts(app):
     with app.app_context():
         init_db()
         seed_db()
@@ -744,7 +744,7 @@ def test_login_rate_limits_ip_after_twenty_requests(app):
         blocked_response = client.post(
             "/api/auth/login",
             json={
-                "username": "requester_demo",
+                "username": "another_requester_demo",
                 "password": "wrong-password",
             },
         )
@@ -983,3 +983,80 @@ def test_blocked_ip_username_does_not_block_same_username_from_different_ip(app)
         )
 
         assert new_login.status_code == 401
+
+def test_successful_login_does_not_reset_ip_rate_limit(app):
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        client = app.test_client()
+
+        for _ in range(3):
+            attempt_login = client.post(
+                "/api/auth/login",
+                json={
+                    "username": "requester_demo",
+                    "password": "wrong-password",
+                }
+            )
+
+            assert attempt_login.status_code == 401
+
+        login_response = client.post(
+            "/api/auth/login",
+            json={
+                "username": "requester_demo",
+                "password": "requester123",
+            }
+        )
+
+        assert login_response.status_code == 200
+
+        ip_record = get_rate_limit(
+            "ip",
+            "127.0.0.1",
+        )
+
+        assert ip_record is not None
+        assert ip_record["attempt_count"] == 4
+
+def test_ip_wide_cooldown_allows_request_after_sixty_seconds(app):
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        current_time = datetime.now()
+        expired_block = current_time - timedelta(seconds=1)
+
+        create_rate_limit(
+            "ip",
+            "127.0.0.1",
+            attempt_count=20,
+            window_started_at=current_time - timedelta(seconds=61)
+        )
+
+        block_rate_limit(
+            "ip",
+            "127.0.0.1",
+            expired_block,
+        )
+
+        client = app.test_client()
+
+        login_response = client.post(
+            "/api/auth/login",
+            json={
+                "username": "requester_demo",
+                "password": "requester123",
+            }
+        )
+
+        assert login_response.status_code == 200
+
+        ip_record = get_rate_limit(
+            "ip",
+            "127.0.0.1",
+        )
+
+        assert ip_record is not None
+        assert ip_record["attempt_count"] == 1
