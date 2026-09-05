@@ -1145,7 +1145,7 @@ def test_requester_cannot_add_note_to_another_requesters_ticket(app):
         },
     )
 
-    assert response.status_code == 403, response.get_data(as_test=True)
+    assert response.status_code == 403, response.get_data(as_text=True)
 
     data = response.get_json()
 

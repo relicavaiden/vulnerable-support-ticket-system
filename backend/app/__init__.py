@@ -10,6 +10,10 @@ from app.routes.tickets import tickets_bp
 def create_app(test_config=None):
     app = Flask(__name__)
 
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SECURE"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
     app.config["DATABASE"] = os.path.join(
         app.instance_path,
         "vulnerable_ticket_system.db"
