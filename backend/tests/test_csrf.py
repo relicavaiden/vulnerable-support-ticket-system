@@ -1,6 +1,6 @@
 import pytest
 
-from app.db import get_db, init_db
+from app.db import init_db
 from app.seed import seed_db
 
 def test_authenticated_ticket_creation_accepts_request_without_csrf_token(app):
