@@ -3,8 +3,6 @@ import pytest
 from app.db import get_db, init_db
 from app.seed import seed_db
 
-from werkzeug.security import generate_password_hash
-
 def test_login_username_is_not_vulnerable_to_sql_injection(app):
     with app.app_context():
         init_db()

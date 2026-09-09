@@ -1,8 +1,7 @@
 from flask import Blueprint, jsonify, request, session
 from werkzeug.security import check_password_hash
 from datetime import datetime
-
-
+import secrets
 
 from app.db import get_db
 from app.rate_limit import (
@@ -11,6 +10,7 @@ from app.rate_limit import (
     record_and_apply_rate_limit,
     reset_rate_limit,
 )
+from app.user_sessions import create_user_session, revoke_user_session, validate_user_session
 
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
@@ -87,8 +87,16 @@ def login():
         "ip_username",
         pair_key,
     )
+
+    session_id = secrets.token_urlsafe(32)
+
+    create_user_session(
+        user["id"],
+        session_id,
+    )
     
     session["user_id"] = user["id"]
+    session["session_id"] = session_id
         
     return jsonify({
             "user": {
@@ -101,8 +109,12 @@ def login():
 @auth_bp.get("/me")
 def me():
     user_id = session.get("user_id")
+    session_id = session.get("session_id")
 
-    if user_id is None:
+    if not validate_user_session(
+        user_id,
+        session_id,
+    ):
         return jsonify({"error": "Not authenticated"}), 401
     
     db = get_db()
@@ -125,6 +137,11 @@ def me():
 
 @auth_bp.post("/logout")
 def logout():
+    session_id = session.get("session_id")
+
+    if session_id is not None:
+        revoke_user_session(session_id)
+
     session.clear()
 
     return jsonify({"message": "Logged out successfully"}), 200

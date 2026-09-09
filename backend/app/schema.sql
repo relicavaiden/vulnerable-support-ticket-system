@@ -57,4 +57,14 @@ CREATE TABLE login_rate_limits (
     blocked_until TIMESTAMP DEFAULT NULL,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (scope, rate_limit_key)
+);
+
+CREATE TABLE user_sessions (
+    id INTEGER PRIMARY KEY,
+    session_id TEXT UNIQUE NOT NULL,
+    user_id INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TIMESTAMP DEFAULT NULL,
+
+    FOREIGN KEY (user_id) REFERENCES users(id)
 )

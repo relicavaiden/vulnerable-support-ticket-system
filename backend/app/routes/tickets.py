@@ -1,6 +1,8 @@
 from flask import Blueprint, jsonify, request, session
 
 from app.db import get_db
+from app.user_sessions import validate_user_session
+from app.auth_guard import require_authenticated_session
 
 tickets_bp = Blueprint("tickets", __name__, url_prefix="/api")
 
@@ -13,11 +15,9 @@ ALLOWED_CATEGORIES = {
 }
 
 @tickets_bp.get("/tickets")
+@require_authenticated_session
 def get_tickets():
     user_id = session.get("user_id")
-
-    if user_id is None:
-        return jsonify({"error": "Not authenticated"}), 401
     
     db = get_db()
 
@@ -66,6 +66,7 @@ def get_tickets():
     }), 200
 
 @tickets_bp.post("/tickets")
+@require_authenticated_session
 def create_ticket():
     user_id = session.get("user_id")
 
@@ -157,6 +158,7 @@ def create_ticket():
     }), 201
 
 @tickets_bp.get("/tickets/<int:ticket_id>")
+@require_authenticated_session
 def get_ticket_detail(ticket_id):
     user_id = session.get("user_id")
 
@@ -235,6 +237,7 @@ def get_ticket_detail(ticket_id):
     }), 200
 
 @tickets_bp.post("/tickets/<int:ticket_id>/notes")
+@require_authenticated_session
 def add_ticket_note(ticket_id):
     user_id = session.get("user_id")
 
@@ -335,6 +338,7 @@ def add_ticket_note(ticket_id):
     }), 201
 
 @tickets_bp.patch("/tickets/<int:ticket_id>/status")
+@require_authenticated_session
 def update_ticket_status(ticket_id):
     user_id = session.get("user_id")
 
