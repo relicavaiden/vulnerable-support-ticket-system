@@ -1,5 +1,8 @@
-from app.db import get_db, init_db
+from app.db import get_db
 from app.seed import seed_db
+from datetime import datetime
+
+USER_SESSION_MAX_LIFETIME_SECONDS = 4 * 60 * 60
 
 def create_user_session(user_id, session_id):
 
@@ -77,4 +80,17 @@ def validate_user_session(user_id, session_id):
     if session_info["user_id"] != user_id:
         return False
 
+    current_time = datetime.now()
+
+    if has_user_session_expired(session_info, current_time):
+        return False
+
     return True
+
+def has_user_session_expired(session_info, current_time):
+
+    created_at = datetime.fromisoformat(session_info["created_at"])
+
+    elapsed = current_time - created_at
+
+    return elapsed.total_seconds() >= USER_SESSION_MAX_LIFETIME_SECONDS

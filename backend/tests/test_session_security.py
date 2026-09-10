@@ -225,3 +225,28 @@ def test_revoked_session_cookie_cannot_access_ticket_routes(app):
         data = ticket_test.get_json()
 
         assert data["error"] == "Not authenticated"
+
+def test_session_lifetime_configuration(app):
+    with app.app_context():
+        init_db()
+        seed_db()
+
+        client = app.test_client()
+
+        login_response = client.post(
+            "/api/auth/login",
+            json={
+                "username": "requester_demo",
+                "password": "requester123"
+            } 
+        )
+
+        with client.session_transaction() as flask_session:
+            print(flask_session.permanent)
+
+        print(app.config["PERMANENT_SESSION_LIFETIME"])
+        print(app.config["SESSION_REFRESH_EACH_REQUEST"])
+
+        set_cookie = login_response.headers.get("Set-Cookie")
+
+        print(set_cookie)
