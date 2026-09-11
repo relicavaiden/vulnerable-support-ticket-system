@@ -1,3 +1,4 @@
+import RoleGuard from "@/components/auth/RoleGuard";
 import AppShell from "@/components/layout/AppShell";
 
 export default function RequesterLayout({
@@ -6,8 +7,13 @@ export default function RequesterLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <AppShell roleLabel="Requester">
-            {children}
-        </AppShell>
+        <RoleGuard
+            expectedRole="requester"
+            wrongRoleRedirect="/resolver/tickets"
+            >
+            <AppShell roleLabel="Requester">
+                {children}
+            </AppShell>
+        </RoleGuard>
     );
 }

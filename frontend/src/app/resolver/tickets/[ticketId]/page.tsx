@@ -27,6 +27,7 @@ export default function ResolverTicketDetailPage() {
         setTicket,
         loadError,
         isLoading,
+        isCurrentRequestLoaded,
     } = useTicketDetail({
         ticketId: params.ticketId as string,
         expectedRole: "resolver",
@@ -104,12 +105,16 @@ export default function ResolverTicketDetailPage() {
 
         
     
-        if (isLoading) {
-            return <main>Loading ticket...</main>;
+            if (isLoading) {
+                return <main>Loading ticket...</main>;
             }
     
             if (loadError) {
                 return <main>{loadError}</main>;
+            }
+
+            if (!isCurrentRequestLoaded) {
+                return null;
             }
     
             if (ticket === null) {

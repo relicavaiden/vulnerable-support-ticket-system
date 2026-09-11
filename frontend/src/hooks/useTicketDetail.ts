@@ -18,14 +18,21 @@ export function useTicketDetail({
     expectedRole,
     wrongRoleRedirect,
 }: UseTicketDetailOptions) {
+    const router = useRouter()
     const [ticket, setTicket] = useState<TicketDetail | null>(null);
     const [loadError, setLoadError] = useState("");
     const [isLoading, setIsLoading] = useState(true);
+    const [loadedRequestKey, setLoadedRequestKey] = useState<string | null>(null);
 
-    const router = useRouter();
+    const requestKey = `${expectedRole}:${ticketId}`;
 
     useEffect(() => {
-    async function loadTicket() {
+        async function loadTicket() {
+            setIsLoading(true);
+            setTicket(null);
+            setLoadError("");
+            setLoadedRequestKey(null);
+
         try {
             const data = await getCurrentUser();
 
@@ -41,9 +48,12 @@ export function useTicketDetail({
                 setIsLoading(false);
                 return;
             }
+            
 
             const ticketData = await getTicket(numericTicketId);
+
             setTicket(ticketData.ticket);
+            setLoadedRequestKey(requestKey);
             setIsLoading(false);
         } catch {
             setLoadError("Failed to load ticket.");
@@ -54,11 +64,14 @@ export function useTicketDetail({
     loadTicket();
 }, [ticketId, expectedRole, wrongRoleRedirect, router]);
 
+const isCurrentRequestLoaded = loadedRequestKey === requestKey;
+
 return {
     ticket,
     setTicket,
     loadError,
     isLoading,
+    isCurrentRequestLoaded,
 };
 }
 

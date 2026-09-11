@@ -1,3 +1,4 @@
+import RoleGuard from "@/components/auth/RoleGuard";
 import AppShell from "@/components/layout/AppShell";
 
 export default function ResolverLayout({
@@ -6,8 +7,13 @@ export default function ResolverLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <AppShell roleLabel="Resolver">
-            {children}
-        </AppShell>
+        <RoleGuard
+            expectedRole="resolver"
+            wrongRoleRedirect="/requester/tickets"
+            >
+            <AppShell roleLabel="Resolver">
+                {children}
+            </AppShell>
+        </RoleGuard>
     );
 }
