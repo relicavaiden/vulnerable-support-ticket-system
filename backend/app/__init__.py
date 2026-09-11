@@ -1,5 +1,6 @@
 import os
 
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask import Flask
 from flask_cors import CORS
 
@@ -20,6 +21,13 @@ def create_app(test_config=None):
     )
 
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
+
+    if os.environ.get("TRUST_PROXY") == "1":
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app,
+            x_for=1,
+            x_proto=1,
+        )
 
     if test_config is not None:
         app.config.update(test_config)
